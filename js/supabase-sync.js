@@ -297,9 +297,13 @@
     });
   }
 
+  const expandJimmy = v => (v.trim().toLowerCase() === 'jimmy' ? 'jimmy@cannoncodeconnect.com' : v);
+
   // Called by the HTML form buttons
   window.cllAuthSubmitSignIn = async function () {
-    const email    = document.getElementById('auth-email-signin').value.trim();
+    const emailEl  = document.getElementById('auth-email-signin');
+    const email    = expandJimmy(emailEl.value.trim());
+    if (email !== emailEl.value.trim()) emailEl.value = email;
     const password = document.getElementById('auth-pw-signin').value;
     const errEl    = document.getElementById('auth-error-signin');
     const btn      = document.getElementById('auth-btn-signin');
