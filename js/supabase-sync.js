@@ -5,8 +5,12 @@
 // ============================================================
 
 (function () {
-  const SB_URL  = 'https://yvxgkistltbhdsmxphge.supabase.co';
-  const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl2eGdraXN0bHRiaGRzbXhwaGdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyMDIwOTEsImV4cCI6MjA5Mzc3ODA5MX0.XpXjVjAIxiEkLCKAq5W70b_pxhh_sr5gEGVC7LajokY';
+  const SB_URL  = 'https://azkyohtmhlvnkziuvgvk.supabase.co';  // CannonCodeConnect project (moved 2026-11-19)
+  const SB_ANON = 'sb_publishable_C4F7zGYkDVm9hP5hxMRvLg_ral9g3y1';
+
+  // An invite or password-reset link lands here with type=invite|recovery in the hash.
+  // Read it before supabase-js consumes the hash.
+  const LINK_TYPE = (/[#&]type=(invite|recovery)\b/.exec(location.hash) || [])[1] || null;
 
   let sb        = null;
   let user      = null;
@@ -37,6 +41,10 @@
       user = session?.user || null;
       updateAuthUI();
 
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && LINK_TYPE && !wasLoggedIn)) {
+        const m = document.getElementById('auth-setpw-modal');
+        if (m) m.style.display = 'flex';
+      }
       if (event === 'SIGNED_IN' && !wasLoggedIn) {
         await syncOnLogin();
       }
@@ -120,7 +128,7 @@
     pushTimer = setTimeout(async () => {
       const row = Object.assign({ user_id: user.id }, stateToRow(lang, state));
       const { error } = await sb
-        .from('user_progress')
+        .from('cl_user_progress')
         .upsert(row, { onConflict: 'user_id,lang' });
       if (error) console.warn('cllSync push error:', error.message);
     }, 2000);
@@ -130,7 +138,7 @@
   async function pullProgress(lang) {
     if (!sb || !user) return null;
     const { data, error } = await sb
-      .from('user_progress')
+      .from('cl_user_progress')
       .select('*')
       .eq('user_id', user.id)
       .eq('lang', lang)
@@ -142,7 +150,7 @@
   // ── Push a translator card to Supabase ───────────────────────
   async function pushTranslation(lang, item) {
     if (!sb || !user) return;
-    await sb.from('saved_translations').upsert({
+    await sb.from('cl_saved_translations').upsert({
       user_id:     user.id,
       lang,
       english:     item.en       || '',
@@ -156,7 +164,7 @@
   async function pullTranslations(lang) {
     if (!sb || !user) return [];
     const { data } = await sb
-      .from('saved_translations')
+      .from('cl_saved_translations')
       .select('*')
       .eq('user_id', user.id)
       .eq('lang', lang)
@@ -315,19 +323,36 @@
     closeAuthModal();
   };
 
+  // Accounts are invite-only: the second tab sends an invite request instead.
   window.cllAuthSubmitSignUp = async function () {
-    const email    = document.getElementById('auth-email-signup').value.trim();
-    const password = document.getElementById('auth-pw-signup').value;
-    const errEl    = document.getElementById('auth-error-signup');
-    const btn      = document.getElementById('auth-btn-signup');
-    if (!email || !password) { errEl.textContent = 'Please fill in both fields.'; return; }
-    if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
-    btn.disabled = true; btn.textContent = 'Creating account…';
-    const { error } = await signUp(email, password);
-    btn.disabled = false; btn.textContent = 'Create account';
-    if (error) { errEl.textContent = error.message; return; }
+    const email  = document.getElementById('auth-email-signup').value.trim();
+    const name   = (document.getElementById('auth-name-signup') || {}).value || '';
+    const website = (document.getElementById('auth-website-signup') || {}).value || '';
+    const errEl  = document.getElementById('auth-error-signup');
+    const btn    = document.getElementById('auth-btn-signup');
+    errEl.style.color = '';
+    if (!email) { errEl.textContent = 'Enter your email.'; return; }
+    btn.disabled = true; btn.textContent = 'Sending…';
+    const r = await window.cllRequestInvite({ email, name, website });
+    btn.disabled = false; btn.textContent = 'Request an invite';
+    if (r.error) { errEl.textContent = r.error; return; }
     errEl.style.color = '#7ecb8a';
-    errEl.textContent = '✓ Check your email to confirm your account, then sign in.';
+    errEl.textContent = "✓ Got it. We'll email you an invite.";
+  };
+
+  window.cllAuthSetPassword = async function () {
+    const pw    = document.getElementById('auth-pw-new').value;
+    const errEl = document.getElementById('auth-error-setpw');
+    const btn   = document.getElementById('auth-btn-setpw');
+    if (!pw || pw.length < 8) { errEl.textContent = 'Use at least 8 characters.'; return; }
+    if (!sb) { errEl.textContent = 'Sync is offline. Try again in a minute.'; return; }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const { error } = await sb.auth.updateUser({ password: pw });
+    btn.disabled = false; btn.textContent = 'Save password';
+    if (error) { errEl.textContent = error.message; return; }
+    document.getElementById('auth-setpw-modal').style.display = 'none';
+    history.replaceState(null, '', location.pathname + location.search);
+    toast('✓ Password saved.');
   };
 
   window.cllAuthGoogleSignIn  = signInWithGoogle;

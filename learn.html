@@ -2063,7 +2063,7 @@
     <p class="auth-sub">Sign in to keep your progress across all your devices.</p>
     <div class="auth-tabs">
       <button class="auth-tab active" id="auth-tab-signin" onclick="window.cllAuthSwitchTab('signin')">Sign in</button>
-      <button class="auth-tab" id="auth-tab-signup" onclick="window.cllAuthSwitchTab('signup')">Create account</button>
+      <button class="auth-tab" id="auth-tab-signup" onclick="window.cllAuthSwitchTab('signup')">Request an invite</button>
     </div>
 
     <!-- Sign in panel -->
@@ -2077,32 +2077,38 @@
         <input type="password" id="auth-pw-signin" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="auth-submit-btn" id="auth-btn-signin" onclick="window.cllAuthSubmitSignIn()">Sign in</button>
-      <div class="auth-divider">or</div>
-      <button class="auth-google-btn" onclick="window.cllAuthGoogleSignIn()">
-        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-        Continue with Google
-      </button>
       <div class="auth-error" id="auth-error-signin"></div>
     </div>
 
-    <!-- Sign up panel -->
+    <!-- Request an invite panel (accounts are invite-only) -->
     <div id="auth-panel-signup" style="display:none">
+      <p class="auth-sub" style="margin-top:0">Accounts are invite-only. Leave your email and we'll send you one.</p>
       <div class="auth-field">
         <label for="auth-email-signup">Email</label>
         <input type="email" id="auth-email-signup" placeholder="you@example.com" autocomplete="email">
       </div>
       <div class="auth-field">
-        <label for="auth-pw-signup">Password <span style="color:rgba(248,243,231,0.35);font-size:11px;">(min 6 chars)</span></label>
-        <input type="password" id="auth-pw-signup" placeholder="••••••••" autocomplete="new-password">
+        <label for="auth-name-signup">Name <span style="color:rgba(248,243,231,0.35);font-size:11px;">(optional)</span></label>
+        <input type="text" id="auth-name-signup" autocomplete="name" maxlength="120">
       </div>
-      <button class="auth-submit-btn" id="auth-btn-signup" onclick="window.cllAuthSubmitSignUp()">Create account</button>
-      <div class="auth-divider">or</div>
-      <button class="auth-google-btn" onclick="window.cllAuthGoogleSignIn()">
-        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-        Continue with Google
-      </button>
+      <input type="text" id="auth-website-signup" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+      <button class="auth-submit-btn" id="auth-btn-signup" onclick="window.cllAuthSubmitSignUp()">Request an invite</button>
       <div class="auth-error" id="auth-error-signup"></div>
     </div>
+  </div>
+</div>
+
+<!-- Set a password (shown after an invite or reset link) -->
+<div class="auth-overlay" id="auth-setpw-modal" style="display:none">
+  <div class="auth-card" style="max-width:340px;">
+    <h2>Set your password</h2>
+    <p class="auth-sub">You're in. Pick a password so you can sign in on any device.</p>
+    <div class="auth-field">
+      <label for="auth-pw-new">Password <span style="color:rgba(248,243,231,0.35);font-size:11px;">(min 8 chars)</span></label>
+      <input type="password" id="auth-pw-new" placeholder="••••••••" autocomplete="new-password">
+    </div>
+    <button class="auth-submit-btn" id="auth-btn-setpw" onclick="window.cllAuthSetPassword()">Save password</button>
+    <div class="auth-error" id="auth-error-setpw"></div>
   </div>
 </div>
 
@@ -2120,6 +2126,7 @@
   </div>
 </div>
 
+<script src="/cunninglinguist/js/invite.js"></script>
 <script src="/cunninglinguist/js/supabase-sync.js"></script>
   <script src="/cunninglinguist/js/course-ar-de.js"></script>
   <script src="/cunninglinguist/js/course-ar-el.js"></script>
