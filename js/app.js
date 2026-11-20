@@ -2123,7 +2123,7 @@ function renderQuizView() {
   const proctorCol = `
     <div class="quiz-proctor">
       <div class="proctor-bubble">${quip}</div>
-      <img src="/assets/cunning-man.png" alt="The Proctor">
+      <img src="/cunninglinguist/assets/cunning-man.png" alt="The Proctor">
     </div>`;
 
   if (learned.length < 4) {
@@ -2738,7 +2738,7 @@ async function doTranslate() {
   translatorState.error = null;
   renderTranslatorView();
   try {
-    const r = await fetch('/api/translate', {
+    const r = await fetch('/cunninglinguist/api/translate', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ text, lang: currentTarget(), sourceLang: currentSource() })
@@ -2819,7 +2819,7 @@ async function speakWord(text, langCode) {
     const cacheKey = lang + ':' + text;
     let audioUrl = ttsCache[cacheKey];
     if (!audioUrl) {
-      const res = await fetch('/.netlify/functions/tts', {
+      const res = await fetch('/cunninglinguist/.netlify/functions/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, lang }),
@@ -2949,7 +2949,7 @@ function updateLessonBanner(dayNum) {
 
   const nn        = String(dayNum).padStart(2, '0');
   const folderKey = currentLang.startsWith('en-') ? currentPair().courseKey : currentLang;
-  const base      = `/assets/banners/${folderKey}/day-${nn}`;
+  const base      = `/cunninglinguist/assets/banners/${folderKey}/day-${nn}`;
 
   img.style.opacity = '0';
   // Try jpg first, fall back to png, then hide if neither exists

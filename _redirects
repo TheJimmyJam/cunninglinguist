@@ -1,0 +1,6 @@
+# Served at apps.cannoncodeconnect.com/cunninglinguist/ through the ccc-apps spine
+# proxy, which forwards the path as is. Every link in the site starts with
+# /cunninglinguist/, and these rules map that prefix onto the files at the root.
+/cunninglinguist              /cunninglinguist/   301
+/cunninglinguist/             /index.html          200
+/cunninglinguist/*            /:splat              200

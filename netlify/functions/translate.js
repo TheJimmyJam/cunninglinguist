@@ -2,7 +2,19 @@
 // Calls Anthropic API server-side so the key stays secret.
 // Returns { french, ipa, phonetic, gender, examples } on success.
 
+// Only the site's own pages may call this (it spends the Anthropic key).
+const ALLOWED_ORIGINS = new Set([
+  "https://apps.cannoncodeconnect.com",
+  "https://cunninglinguist.netlify.app"
+]);
+
 export default async (req) => {
+  if (!ALLOWED_ORIGINS.has(req.headers.get("origin") || "")) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "content-type": "application/json" }
+    });
+  }
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -118,5 +130,5 @@ Return ONLY a JSON object (no prose, no markdown fences) with these fields:
 };
 
 export const config = {
-  path: "/api/translate"
+  path: ["/api/translate", "/cunninglinguist/api/translate"]
 };
