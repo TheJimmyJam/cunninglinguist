@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Cunning Linguist — Learn Languages From Where You Already Are</title>
 <meta name="description" content="15+ language pairs. 30-day courses. Real conversations. Learn any language from the one you already speak.">
-<link rel="icon" href="/assets/favicon-32.png" type="image/png">
+<link rel="icon" href="/cunninglinguist/assets/favicon-32.png" type="image/png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -728,7 +728,7 @@ footer a:hover { color: var(--gold-light); }
     <div class="lp-nudge">
       <span>🔒</span>
       <span id="modalNoAccount"><strong style="color:var(--cream)">No account needed.</strong></span> Progress saves automatically on this device.
-      <a href="/learn.html" onclick="event.preventDefault(); try{localStorage.setItem('cll_open_auth','1')}catch(e){}; startLearning();">Sign in</a> to sync across devices.</span>
+      <a href="/cunninglinguist/learn.html" onclick="event.preventDefault(); try{localStorage.setItem('cll_open_auth','1')}catch(e){}; startLearning();">Sign in</a> to sync across devices.</span>
     </div>
   </div>
 </div>
@@ -986,7 +986,7 @@ footer a:hover { color: var(--gold-light); }
     <!-- Left: library image -->
     <div class="monocle-left">
       <div class="monocle-img-wrap" id="monocleImgWrap">
-        <img class="monocle-img" src="/assets/logos/most interesting cunning linguist.png" alt="The Cunning Linguist in his private library">
+        <img class="monocle-img" src="/cunninglinguist/assets/logos/most interesting cunning linguist.png" alt="The Cunning Linguist in his private library">
       </div>
     </div>
 
@@ -2201,7 +2201,7 @@ function startLearning() {
   const src = document.getElementById('src-lang').value;
   const tgt = document.getElementById('tgt-lang').value;
   try { localStorage.setItem('cll_lang', src + '-' + tgt); } catch(e) {}
-  window.location.href = '/learn.html';
+  window.location.href = '/cunninglinguist/learn.html';
 }
 
 function openPicker() {
@@ -2274,7 +2274,7 @@ document.getElementById('lpOverlay').addEventListener('click', e => {
 // Called by every pair card — sets the correct src-tgt pair then loads learn.html
 function goToPair(src, tgt) {
   try { localStorage.setItem('cll_lang', src + '-' + tgt); } catch(e) {}
-  window.location.href = '/learn.html';
+  window.location.href = '/cunninglinguist/learn.html';
 }
 // Close on Escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePicker(); });
@@ -2642,7 +2642,7 @@ function renderTargets(src) {
   const grid = document.getElementById('tgtGrid');
   const pairs = PAIR_DATA[src] || [];
   grid.innerHTML = pairs.map((p, i) =>
-    `<a href="/learn.html"
+    `<a href="/cunninglinguist/learn.html"
         onclick="event.preventDefault();goToPair('${src}','${p.tgt}')"
         class="tgt-card"
         style="animation-delay:${i * 0.03}s">
