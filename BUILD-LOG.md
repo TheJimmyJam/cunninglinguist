@@ -37,3 +37,31 @@ DevTools "Fast 4G" profile (9 Mbps down, 1.5 Mbps up, 165 ms RTT), local static 
 
 ### Next step
 Lead: independent check, then push `paris-v2-stage1` once (Actions AMBER), PR into main, merge, confirm the deploy at https://apps.cannoncodeconnect.com/cunninglinguist/learn.html shows 1 course file in the network panel.
+
+## Stage 2 — Real review + Today session (builder handoff, 2026-11-23)
+
+Branch `paris-v2-stage2` (from `origin/main`). Committed locally, NOT pushed.
+
+### What changed
+- **js/srs.js (new, pure, loaded before app.js by the learn.html loader)**: SM-2 lite (`rec` and `prod` cards per item: due/ivl/ease/reps/lapses; miss → back in 10 min, ease −0.2; pass → 1d, 3d, then ×ease; passing before due doesn't stretch the interval), learnedCards migration (seen once, due tomorrow, recognition only), `isMastered` (rec interval ≥3 = passed on two separate days), grading (`gradeAnswer`: case → curly/straight apostrophes → English contractions → accents → drop punctuation/spaces; parentheses are notes/optional (`désolé(e)`, `70 (lit. sixty-ten)`), ` / `, `|`, `;` and `a/b` are alternatives, accents-optional returns `nudge`), `uniqueOptions` for MC, honest streak (`finishSessionDay`/`liveStreak`: only finished sessions count, one missed day can use grace (2/month), longer gaps reset, header shows 0 once broken), `PARIS_DATE = '2026-12-20'`.
+- **SRS storage**: `localStorage['cll_srs_<pair>']`, separate from the synced progress object; supabase-sync untouched. Not synced across devices yet (Later list). Today session resume: `cll_today_<pair>` (today's date only). New progress field `state.lastSessionDay` (sync ignores it; merge keeps local).
+- **Today · 10 min (en-fr only, first screen)**: start screen (Due / New / Streak, N days to Paris, Start · 10 min | 3 min, Resume i/n) → due reviews (≤20; rec = show/Missed/Got it, prod = type French) → 4-6 new items (vocab and phrases alternate within a day) → listen drill (Web Speech, pick the meaning) → typed recall English→French with accent nudge → one scene from CONVERSATIONS (rotates per finished session; tap lines for English/French) → summary (reviews, new, heard, typed, new words, scene, tomorrow's count, days to Paris). 3 min = ≤6 reviews + 2 new, no scene. Finishing counts the streak day once.
+- **Flashcards**: pool = new or due cards (deduped); Got it/Need work grade the rec card; missed cards go to the end of the run; "All caught up" + Practice anyway. Learned-bucket UI and helpers removed.
+- **Bugs**: type-it now asks both directions with correct labels (`quiz_what_does` gets the source label) and grades via `gradeAnswer`; MC options unique ignoring case; matching round draws 4 pairs unique on both sides; quiz Enter handler only on the quiz view, ignores inputs/buttons, removed on leaving; type-it Enter no longer double-advances; translator double submit (input onkeydown removed + loading guard); Mastered = SRS rule everywhere (header, day cards, Progress); completeDay/uncompleteDay no longer set streak from completedDays (pairs without Today count a completed lesson as the day's session); `showToast(msg, duration)` honours duration; `l'entrée` duplicate: day 29 is now "l'entrée du musée" / "the museum entrance".
+- **Phone (≤600px)**: top tabs hidden; fixed 4-item bottom bar (Today, Flashcards, Translator, More → sheet with Lessons, Quiz, All Lessons, Conversations, Notebook, Progress); `scroll-padding-bottom` so buttons don't hide under it; quiz mascot hidden. All speak buttons 44px; lesson vocab and flashcard speak buttons are siblings of the flip target, not inside it. Desktop: "Today" tab first, lesson tab reads "Lessons" on en-fr.
+- Files: `js/srs.js`, `js/app.js`, `learn.html`, `js/course-en-fr.js` (one line), `tests/srs-sim.mjs`.
+
+### Measured
+- `node tests/srs-sim.mjs`: 15 passed (3-day fake clock: missed card due in 10 min and again day 3, passed card 1d → 3d → >3d; ease/lapses; early practice; rec/prod separate; migration due tomorrow and idempotent; mastered; streak: same-day no-op, skipped day no inflation, grace +1 not +2, 2-day gap and 70-day gap reset, grace cap; days to Paris 27 on 2026-11-23; grading: parentheses, curly apostrophes, l'/d', accents nudge, œ, alternatives; MC uniqueness).
+- Muted headless Chrome (puppeteer-core, speechSynthesis stubbed, /api/translate mocked, outside requests blocked), 30/30 checks: 390×844 — learnedCards migrated (due tomorrow, not now); Today first; 10-min flow completes (6 intro, 6 listen, 6 recall, 1 scene, summary), streak 1; 2nd session same day keeps streak 1; reload mid-session → Resume at step 3; bottom nav 4 × 91.5×56 px equal, header/main/bar centers 195/195/195; start tiles 3 × 102.7×79.2, start buttons 2 × 159×52, summary tiles 2×2 × 159×79.2, More sheet 6 × 172×52; 18 lesson speak buttons ≥44, none inside a flip card; flashcard speak ≥44 outside; quiz mascot display none; Enter outside quiz no-op; translator Enter = 1 request; 0 console errors. 1280×900 — bottom bar hidden, 9 top tabs with Today first, Today completes, 0 errors. en-pt — lesson renders (10 vocab cards), bottom Today → lesson, flashcards + quiz open, 0 errors.
+- Screenshots: scratchpad `today-start-390.png`, `today-summary-390.png`, `today-summary-1280.png`. Check script: scratchpad `e2e.cjs` (server: `python3 -m http.server 8762` in a dir with `cunninglinguist` → repo symlink).
+
+### Not done / unverified
+- Not tested on a real iPhone (auto-speak on Next/Start relies on the tap gesture; focus on the typed-recall input after Check).
+- SRS state isn't synced to Supabase (own localStorage key by design; schema untouched).
+- Notebook "need work" badge sits on the hidden top tab on phones.
+- Speaking (dictation) recall not built; typing only. Static audio still stage 4.
+- pt-fr / es-de still broken as before (out of scope).
+
+### Next step
+Lead: independent check (run `node tests/srs-sim.mjs`; headless 390/1280 Today flow + §22 measurements), then push `paris-v2-stage2` once, PR into main, merge, confirm the deploy shows Today first at https://apps.cannoncodeconnect.com/cunninglinguist/learn.html.
