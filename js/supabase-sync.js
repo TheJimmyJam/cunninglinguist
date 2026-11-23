@@ -378,6 +378,10 @@
     pushTranslation,
     pullTranslations,
     getUser: () => user,
+    getAccessToken: async () => {
+      try { return (sb && (await sb.auth.getSession()).data.session?.access_token) || null; }
+      catch (e) { return null; }
+    },
     showAuthModal,
     closeAuthModal,
     updateAuthUI,
