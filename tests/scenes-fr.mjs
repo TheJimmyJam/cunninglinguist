@@ -158,5 +158,43 @@ check('respond after done and empty input are no-ops', () => {
   assert.equal(S.respond(st2, '   '), null);
 });
 
+// Short answers at single-group steps (one keyword group, not two).
+function acceptsAt(id, v, node, said) {
+  const st = S.start(id, v);
+  st.node = node;
+  const r = S.respond(st, said);
+  assert.equal(r && r.kind, 'intent', `${id} v${v} ${node}: "${said}" got ${r && r.kind}`);
+}
+check('short answers accepted: pharmacy offer, taxi ok/cardok, lost found/form', () => {
+  ['Oui.', "D'accord.", 'Ok, merci.', 'Une boîte.', 'Oui !'].forEach(t => acceptsAt('pharmacy', 0, 'offer', t));
+  ['Pas de problème.', "D'accord.", 'Oui.', 'Ok, merci.'].forEach(t => acceptsAt('taxi', 0, 'ok', t));
+  ['Merci.', 'Super.', 'Oui.', 'Ok, merci.'].forEach(t => acceptsAt('taxi', 0, 'cardok', t));
+  ["C'est le mien !", 'Oui.', 'Oui !', 'Merci.', "D'accord."].forEach(t => acceptsAt('lost', 0, 'found', t));
+  ['Voilà.', "D'accord.", 'Ok, merci.', 'Merci.', 'Super.', 'Oui.'].forEach(t => acceptsAt('lost', 1, 'form', t));
+});
+check('no keyword list has a second group built by concat', () => {
+  const { readFileSync } = require('node:fs');
+  const src = readFileSync(new URL('../js/scenes-fr.js', import.meta.url), 'utf8');
+  assert.ok(!/\.concat\(\s*\[\s*\[/.test(src), 'found .concat([[');
+});
+check('evening scenes answer a bare greeting with Bonsoir', () => {
+  for (const id of ['restaurant', 'hotel']) {
+    const r = S.respond(S.start(id, 0), 'Bonsoir !');
+    assert.equal(r.kind, 'hello'); assert.equal(r.npc.fr, 'Bonsoir ! Je vous écoute.');
+  }
+  const c = S.respond(S.start('cafe', 0), 'Bonjour !');
+  assert.equal(c.npc.fr, 'Bonjour ! Je vous écoute.');
+  assert.ok(S.allNpcLines().includes('Bonsoir ! Je vous écoute.'));
+});
+check('métro: closed station and interrupted line are caught by their keywords', () => {
+  const a = S.start('metro', 1); a.node = 'line';
+  assert.match(S.respond(a, 'Fermée ? Louvre-Rivoli, d\'accord.').npc.fr, /c'est ça/);
+  assert.ok(a.caught);
+  const b = S.start('metro', 2); b.node = 'line';
+  S.respond(b, 'Interrompue ? La ligne 7, merci.');
+  assert.ok(b.caught);
+  assert.ok(!S.allNpcLines().some(l => /Palais Royal/.test(l)));
+});
+
 console.log(`\n${passes} passed, ${failures} failed`);
 process.exit(failures ? 1 : 0);

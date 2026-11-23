@@ -107,7 +107,7 @@
       }
     },
     {
-      id: 'restaurant', title: 'Restaurant', icon: '🍷', role: 'a waiter in a Paris bistro, in the evening',
+      id: 'restaurant', title: 'Restaurant', icon: '🍷', role: 'a waiter in a Paris bistro, in the evening', greet: 'Bonsoir',
       goal: 'Get a table for two, order the dish of the day, ask for the bill and pay.',
       vars: [
         { dish: 'le bœuf bourguignon', dishEn: 'beef bourguignon', bill: 'trente-deux euros', billEn: '€32', ai: 'The dish of the day is le bœuf bourguignon. The bill is trente-deux euros.' },
@@ -119,11 +119,11 @@
         hello: { npc: ['Bonsoir ! Vous êtes combien ?', 'Good evening! How many of you?'], intents: [
           { kw: [['deux', '2', 'trois', 'quatre', 'un', 'une', 'seul', 'table']], next: 'resa', ex: ["Bonsoir, une table pour deux, s'il vous plaît."], en: 'Good evening, a table for two, please.' }
         ] },
-        resa: { npc: ['Vous avez une réservation ?', 'Do you have a reservation?'], intents: [
+        resa: { npc: ['Vous avez réservé ?', 'Do you have a reservation?'], intents: [
           { kw: [['non', 'pas de']], next: 'seat', ex: ['Non, désolé. Vous avez de la place ?'], en: "No, sorry. Do you have room?" },
           { kw: [['oui', 'au nom']], next: 'seat', ex: ["Oui, au nom de Cannon."], en: 'Yes, under the name Cannon.' }
         ] },
-        seat: { npc: ['Très bien, suivez-moi. Vous avez choisi ?', 'Very good, follow me. Have you decided?'], intents: [
+        seat: { npc: ['Très bien, suivez-moi. Voici la carte. Vous avez choisi ?', 'Very good, follow me. Here is the menu. Have you decided?'], intents: [
           { kw: [['c est quoi', 'qu est ce que', 'quel est', 'recommand', 'conseill']], next: 'whatis', ex: ["C'est quoi, le plat du jour ?"], en: "What's the dish of the day?" },
           { kw: [['plat du jour']], next: function (v) { return v.soldOut ? 'nodish' : 'drink'; }, ex: ["Le plat du jour, s'il vous plaît."], en: 'The dish of the day, please.' },
           { kw: [['poulet', 'steak', 'canard', 'boeuf', 'salade', 'poisson', 'je vais prendre', 'je voudrais', 'je prends', 'confit', 'soupe']], next: 'drink', ex: ['Je vais prendre le confit de canard.'], en: "I'll have the duck confit." }
@@ -132,7 +132,7 @@
           { kw: [['je vais prendre', 'je prends', 'oui', 'd accord', 'je voudrais', 'parfait', 'ca', 'le plat', 'bourguignon', 'pour moi', 'deux', 'tres bien']], next: function (v) { return v.soldOut ? 'nodish' : 'drink'; }, ex: ['Parfait, je vais prendre ça.'], en: "Perfect, I'll have that." },
           { kw: [['non', 'autre', 'salade', 'poisson', 'steak', 'poulet']], next: 'drink', ex: ['Je vais prendre le poulet, plutôt.'], en: "I'll have the chicken instead." }
         ] },
-        nodish: { only: 'soldOut', npc: ['Ah, désolé, le plat du jour est fini. Il reste le poulet rôti.', "Ah, sorry, the dish of the day is gone. There's roast chicken left."], intents: [
+        nodish: { only: 'soldOut', npc: ["Ah, désolé, il n'y a plus de plat du jour. Il nous reste du poulet rôti.", "Ah, sorry, there's no dish of the day left. We still have roast chicken."], intents: [
           { kw: [['poulet', 'oui', 'd accord', 'ok', 'je vais prendre', 'parfait', 'ca va', 'tres bien', 'je prends']], next: 'drink', ex: ["D'accord, le poulet rôti, s'il vous plaît."], en: 'OK, the roast chicken, please.' },
           { kw: [['non', 'autre', 'salade', 'poisson', 'steak']], next: 'drink', ex: ['Non, une salade, plutôt.'], en: 'No, a salad instead.' }
         ] },
@@ -167,9 +167,9 @@
       id: 'metro', title: 'Métro counter', icon: '🚇', role: 'the agent at a Paris métro station ticket counter',
       goal: 'Buy a Navigo Easy pass with two tickets, then ask which line goes to the Louvre.',
       vars: [
-        { lineFr: 'Prenez la ligne 1, direction La Défense. Descendez à Palais Royal.', lineEn: 'Take line 1 towards La Défense. Get off at Palais Royal.', ai: 'The way to the Louvre: ligne 1, direction La Défense, get off at Palais Royal (four stops). The pass plus two tickets is sept euros dix.' },
-        { lineFr: "Prenez la ligne 1, direction La Défense. Attention, aujourd'hui, c'est le quai d'en face.", lineEn: "Take line 1 towards La Défense. Careful, today it's the opposite platform.", otherPlatform: true, ai: "The way to the Louvre: ligne 1, direction La Défense, but today trains leave from the opposite platform (le quai d'en face). The pass plus two tickets is sept euros dix.", note: "This time the train left from the opposite platform (le quai d'en face)." },
-        { lineFr: 'Attention, il y a une grève sur la ligne 1. Prenez la ligne 7 jusqu\'à Palais Royal.', lineEn: "Careful, there's a strike on line 1. Take line 7 to Palais Royal.", strike: true, ai: 'There is a strike on ligne 1 today: send the customer on ligne 7 to Palais Royal. The pass plus two tickets is sept euros dix.', note: 'This time line 1 was on strike (grève): line 7 instead.' }
+        { lineFr: 'Prenez la ligne 1, direction La Défense. Descendez à Palais-Royal.', lineEn: 'Take line 1 towards La Défense. Get off at Palais-Royal.', ai: 'The way to the Louvre: ligne 1, direction La Défense, get off at Palais-Royal (four stops). The pass plus two tickets is sept euros dix.' },
+        { lineFr: 'Prenez la ligne 1, direction La Défense. Attention, la station Palais-Royal est fermée : descendez à Louvre-Rivoli.', lineEn: 'Take line 1 towards La Défense. Careful, Palais-Royal station is closed: get off at Louvre-Rivoli.', closedStation: true, ai: 'The way to the Louvre: ligne 1, direction La Défense, but Palais-Royal station is closed today (fermée): get off at Louvre-Rivoli. The pass plus two tickets is sept euros dix.', note: 'This time Palais-Royal station was closed (fermée): you get off at Louvre-Rivoli.' },
+        { lineFr: "Attention, la ligne 1 est interrompue aujourd'hui. Prenez la ligne 7 jusqu'à Palais-Royal.", lineEn: 'Careful, line 1 is out of service today. Take line 7 to Palais-Royal.', strike: true, ai: 'Ligne 1 is interrupted today (interrompue): send the customer on ligne 7 to Palais-Royal. The pass plus two tickets is sept euros dix.', note: 'This time line 1 was out of service (interrompue): line 7 instead.' }
       ],
       start: 'hello',
       nodes: {
@@ -187,13 +187,13 @@
           { kw: [['louvre', 'musee']], next: 'line', ex: ['Au Louvre. Quelle ligne ?'], en: 'To the Louvre. Which line?' }
         ] },
         line: { npc: ['{lineFr}', '{lineEn}'], intents: [
-          { only: 'otherPlatform', catches: true, kw: [['en face', 'autre quai', 'quel quai', 'quai']], next: 'yes', ex: ["Le quai d'en face ? D'accord."], en: 'The opposite platform? OK.' },
-          { only: 'strike', catches: true, kw: [['greve', 'ligne 7', 'sept', '7']], next: 'yes', ex: ['La ligne 7 ? Merci.'], en: 'Line 7? Thanks.' },
-          { kw: [['combien', 'arret', 'c est loin', 'loin', 'temps', 'minutes']], next: 'stops', ex: ["C'est combien d'arrêts ?"], en: 'How many stops is it?' },
+          { only: 'closedStation', catches: true, kw: [['ferme', 'louvre rivoli', 'rivoli', 'autre station']], next: 'yes', ex: ["Louvre-Rivoli ? D'accord."], en: 'Louvre-Rivoli? OK.' },
+          { only: 'strike', catches: true, kw: [['greve', 'ligne 7', 'sept', '7', 'interromp', 'ferme', 'travaux']], next: 'yes', ex: ['La ligne 7 ? Merci.'], en: 'Line 7? Thanks.' },
+          { kw: [['combien', 'arret', 'c est loin', 'loin', 'temps', 'minutes']], next: 'stops', ex: ["Il y a combien d'arrêts ?"], en: 'How many stops is it?' },
           { kw: THANKS, next: 'bye', ex: ['Merci beaucoup.'], en: 'Thank you very much.' }
         ] },
         yes: { npc: ["Oui, c'est ça.", "Yes, that's right."], intents: [
-          { kw: [['combien', 'arret', 'loin']], next: 'stops', ex: ["C'est combien d'arrêts ?"], en: 'How many stops is it?' },
+          { kw: [['combien', 'arret', 'loin']], next: 'stops', ex: ["Il y a combien d'arrêts ?"], en: 'How many stops is it?' },
           { kw: THANKS, next: 'bye', ex: ['Merci beaucoup.'], en: 'Thank you very much.' }
         ] },
         stops: { npc: ['Quatre arrêts.', 'Four stops.'], intents: [
@@ -221,8 +221,8 @@
           { kw: [['non', 'aucun', 'rien']], next: 'offer', ex: ['Non, aucun.'], en: 'No, none.' },
           { kw: [['oui']], next: 'offer', ex: ['Oui, pour la tension.'], en: 'Yes, for blood pressure.' }
         ] },
-        offer: { npc: ['Du paracétamol, ça ira. Une boîte ?', 'Paracetamol will do. One box?'], intents: [
-          { kw: YES.concat([['une boite', 's il vous plait']]), next: 'dose', ex: ["Oui, une boîte, s'il vous plaît."], en: 'Yes, one box, please.' },
+        offer: { npc: ['Je vous propose du paracétamol. Une boîte ?', "I'd suggest paracetamol. One box?"], intents: [
+          { kw: [YES[0].concat(['une boite', 's il vous plait'])], next: 'dose', ex: ["Oui, une boîte, s'il vous plaît."], en: 'Yes, one box, please.' },
           { kw: [['non', 'autre', 'ibuprofene', 'plus fort']], next: 'dose', ex: ["Vous avez de l'ibuprofène ?"], en: 'Do you have ibuprofen?' }
         ] },
         dose: { npc: ['{dose} Ça fait {price}.', "{doseEn} That's {priceEn}."], intents: [
@@ -238,12 +238,12 @@
       }
     },
     {
-      id: 'hotel', title: 'Hotel', icon: '🏨', role: 'the receptionist of a small Paris hotel',
+      id: 'hotel', title: 'Hotel', icon: '🏨', role: 'the receptionist of a small Paris hotel', greet: 'Bonsoir',
       goal: 'Check in under your name and find out when breakfast is.',
       vars: [
         { room: 'trois cent cinq', roomEn: '305', bfast: 'De sept heures à dix heures.', bfastEn: 'From seven to ten.', ai: 'Two nights, room trois cent cinq. Breakfast from seven to ten.' },
         { room: 'cinq cent trois', roomEn: '503', bfast: 'De sept heures et demie à dix heures et demie.', bfastEn: 'From seven thirty to ten thirty.', ai: 'Two nights, room cinq cent trois. Breakfast from seven thirty to ten thirty.', note: 'This time: room 503, breakfast 7:30 to 10:30.' },
-        { room: 'trois cent cinq', roomEn: '305', bfast: "Le petit-déjeuner n'est pas compris. C'est quinze euros.", bfastEn: "Breakfast isn't included. It's fifteen euros.", ai: 'Two nights, room trois cent cinq. Breakfast is not included: quinze euros.', note: "This time breakfast wasn't included (€15)." }
+        { room: 'trois cent cinq', roomEn: '305', bfast: "Le petit-déjeuner n'est pas compris : c'est quinze euros, de sept heures à dix heures.", bfastEn: "Breakfast isn't included: it's fifteen euros, from seven to ten.", ai: 'Two nights, room trois cent cinq. Breakfast is not included: quinze euros, from seven to ten.', note: "This time breakfast wasn't included (€15)." }
       ],
       start: 'hello',
       nodes: {
@@ -255,7 +255,7 @@
           { kw: [['quelle chambre', 'quel numero', 'numero', 'etage']], next: 'found', ex: ['Pardon, quelle chambre ?'], en: 'Sorry, which room?' },
           { kw: THANKS, next: 'ask', ex: ['Merci beaucoup.'], en: 'Thank you very much.' }
         ] },
-        ask: { npc: ['Vous avez une question ?', 'Do you have a question?'], intents: [
+        ask: { npc: ["Je vous en prie. Vous avez besoin d'autre chose ?", "You're welcome. Do you need anything else?"], intents: [
           { kw: [['petit dejeuner', 'petit-dejeuner', 'dejeuner', 'quelle heure']], next: 'bfast', ex: ['À quelle heure est le petit-déjeuner ?'], en: 'What time is breakfast?' }
         ] },
         bfast: { npc: ['{bfast}', '{bfastEn}'], intents: [
@@ -272,21 +272,21 @@
       vars: [
         { time: 'vingt minutes', fare: 'vingt-deux euros', fareEn: '€22', ai: 'Twenty minutes because of traffic; the fare is vingt-deux euros; card is fine.' },
         { time: 'quarante minutes', fare: 'trente-huit euros', fareEn: '€38', ai: 'Heavy traffic: forty minutes; the fare is trente-huit euros; card is fine.', note: 'This time the ride took forty minutes (€38).' },
-        { time: 'vingt minutes', fare: 'vingt-deux euros', fareEn: '€22', noCard: true, ai: "Twenty minutes; the fare is vingt-deux euros; your card machine doesn't work today, so cash only.", note: "This time the card machine didn't work: cash only." }
+        { time: 'vingt minutes', fare: 'vingt-deux euros', fareEn: '€22', noCard: true, ai: "Twenty minutes; the fare is vingt-deux euros; your card machine doesn't work today, so cash only.", note: "This time the card machine didn't work: cash only. Paris taxis must take cards; you can insist." }
       ],
       start: 'hello',
       nodes: {
         hello: { npc: ['Bonjour ! Vous allez où ?', 'Hello! Where to?'], intents: [
           { kw: [['gare de lyon', 'gare', 'lyon']], next: 'ok', ex: ["À la gare de Lyon, s'il vous plaît."], en: 'To the Gare de Lyon, please.' }
         ] },
-        ok: { npc: ["D'accord. Il y a des bouchons, ça prend {time}.", "OK. There's traffic, it takes {time}."], intents: [
+        ok: { npc: ['Il y a des bouchons, il faut compter {time}.', "There's traffic, allow {time}."], intents: [
           { kw: [['carte']], next: function (v) { return v.noCard ? 'nocard' : 'cardok'; }, ex: ['Je peux payer par carte ?'], en: 'Can I pay by card?' },
-          { kw: YES.concat([['pas de probleme', 'pas grave']]), next: 'arrive', ex: ["D'accord, pas de problème."], en: 'OK, no problem.' }
+          { kw: [YES[0].concat(['pas de probleme', 'pas grave'])], next: 'arrive', ex: ["D'accord, pas de problème."], en: 'OK, no problem.' }
         ] },
         cardok: { npc: ['Oui, la carte, ça marche.', 'Yes, card works.'], intents: [
-          { kw: THANKS.concat([['oui', 'bien']]), next: 'arrive', ex: ['Parfait, merci.'], en: 'Perfect, thanks.' }
+          { kw: [THANKS[0].concat(['oui', 'bien'])], next: 'arrive', ex: ['Parfait, merci.'], en: 'Perfect, thanks.' }
         ] },
-        nocard: { only: 'noCard', npc: ["Désolé, la carte ne marche pas aujourd'hui. Espèces seulement.", "Sorry, the card machine isn't working today. Cash only."], intents: [
+        nocard: { only: 'noCard', npc: ["Désolé, le terminal de paiement ne marche pas aujourd'hui. Espèces seulement.", "Sorry, the card terminal isn't working today. Cash only."], intents: [
           { catches: true, kw: [['espece', 'liquide', 'cash', 'd accord', 'ok', 'distributeur', 'pas de probleme']], next: 'arrive', ex: ["D'accord, j'ai des espèces."], en: 'OK, I have cash.' }
         ] },
         arrive: { npc: ['Voilà, on est arrivés. Ça fait {fare}.', "Here we are. That's {fareEn}."], intents: [
@@ -313,18 +313,18 @@
         hello: { npc: ['Bonjour, je peux vous aider ?', 'Hello, can I help you?'], intents: [
           { kw: [['perdu', 'oublie', 'vole', 'perds']], next: 'what', ex: ["J'ai perdu mon téléphone."], en: "I've lost my phone." }
         ] },
-        what: { npc: ['Où et quand ?', 'Where and when?'], intents: [
+        what: { npc: ["Vous l'avez perdu où, et quand ?", 'Where and when did you lose it?'], intents: [
           { kw: [['metro', 'ligne', 'matin', 'hier', 'train', 'gare', 'dans', 'heure', 'tout a l heure', 'bus', 'cafe', 'rer', 'soir', 'midi']], next: 'desc', ex: ['Dans le métro, ligne 1, ce matin.'], en: 'In the métro, line 1, this morning.' }
         ] },
         desc: { npc: ['Il est comment ?', 'What does it look like?'], intents: [
           { kw: [['noir', 'blanc', 'bleu', 'rouge', 'gris', 'rose', 'vert', 'iphone', 'samsung', 'coque', 'telephone']], next: function (v) { return v.found ? 'found' : 'form'; }, ex: ["C'est un iPhone noir."], en: "It's a black iPhone." }
         ] },
         found: { only: 'found', npc: ["On a un iPhone noir ici. C'est le vôtre ?", "We have a black iPhone here. Is it yours?"], intents: [
-          { kw: YES.concat([['c est le mien', 'mien', 'merci']]), next: 'bye', ex: ["Oui, c'est le mien ! Merci beaucoup."], en: "Yes, it's mine! Thank you very much." },
+          { kw: [YES[0].concat(['c est le mien', 'mien', 'merci'])], next: 'bye', ex: ["Oui, c'est le mien ! Merci beaucoup."], en: "Yes, it's mine! Thank you very much." },
           { kw: [['non']], next: 'form', ex: ["Non, ce n'est pas le mien."], en: "No, it's not mine." }
         ] },
         form: { npc: ["Désolé, rien pour l'instant. Remplissez ce formulaire, s'il vous plaît.", 'Sorry, nothing yet. Please fill in this form.'], intents: [
-          { kw: YES.concat(THANKS).concat([['formulaire', 'voila']]), next: 'bye', ex: ["D'accord. Voilà, merci."], en: 'OK. Here you go, thanks.' }
+          { kw: [YES[0].concat(THANKS[0], ['formulaire', 'voila'])], next: 'bye', ex: ["D'accord. Voilà, merci."], en: 'OK. Here you go, thanks.' }
         ] },
         bye: { final: true, npc: ['Bonne journée, et bon courage !', 'Have a good day, and good luck!'], intents: [
           { kw: THANKS, next: null, ex: ['Merci, au revoir.'], en: 'Thanks, goodbye.' }
@@ -335,6 +335,12 @@
 
   var MISS = ["Pardon ? Je n'ai pas compris.", "Sorry? I didn't understand."];
   var HELLO_BACK = ['Bonjour ! Je vous écoute.', "Hello! I'm listening."];
+  var HELLO_BACK_EVENING = ['Bonsoir ! Je vous écoute.', "Good evening! I'm listening."];
+  // The reply to a bare greeting: Bonsoir for the evening scenes (greet: 'Bonsoir').
+  function helloBack(sc) {
+    var h = sc && sc.greet === 'Bonsoir' ? HELLO_BACK_EVENING : HELLO_BACK;
+    return { fr: h[0], en: h[1] };
+  }
   var CLARIFY = [['pardon', 'repet', 'comprend', 'compris', 'lentement', 'comment', 'quoi', 'encore une fois', 'redire']];
   var GREET = [['bonjour', 'bonsoir', 'salut']];
 
@@ -421,7 +427,7 @@
       st.clarify++;
       out = { kind: 'clarify', npc: line(st), slow: true, done: false };
     } else if (groupsHit(f, GREET) && f.trim().split(' ').length <= 3) {
-      out = { kind: 'hello', npc: { fr: HELLO_BACK[0], en: HELLO_BACK[1] }, done: false };
+      out = { kind: 'hello', npc: helloBack(sc), done: false };
     } else {
       st.misses++; st.nodeMisses++;
       out = { kind: 'miss', npc: { fr: MISS[0], en: MISS[1] }, done: false, showHint: st.nodeMisses >= 2 };
@@ -454,7 +460,7 @@
 
   // Every concrete line the other side can say (all variants), for audio.
   function allNpcLines() {
-    var out = [MISS[0], HELLO_BACK[0]], seen = {};
+    var out = [MISS[0], HELLO_BACK[0], HELLO_BACK_EVENING[0]], seen = {};
     SCENES.forEach(function (sc) {
       sc.vars.forEach(function (v) {
         Object.keys(sc.nodes).forEach(function (k) {

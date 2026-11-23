@@ -41,15 +41,37 @@ const anthropicCalls = () => calls.filter(c => c.url.includes('anthropic.com'));
 const msg = (obj, extra) => ({ status: 200, body: { id: 'msg_test', model: extra?.model || 'claude-sonnet-5-5', stop_reason: 'end_turn', content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: typeof obj === 'string' ? obj : JSON.stringify(obj) }], usage: { input_tokens: 1200, output_tokens: 300 }, ...(extra || {}) } });
 
 // ── usage stores ─────────────────────────────────────────────
+// In-memory fake with @netlify/blobs ETag semantics: getWithMetadata returns
+// { data, etag }; setJSON honours onlyIfMatch / onlyIfNew and returns
+// { modified, etag }. Every call yields to the event loop so parallel callers interleave.
+const tick = () => new Promise(r => setImmediate(r));
 function memStore() {
-  const m = new Map();
-  return {
-    m,
-    async get(k, o) { const v = m.get(k); return v == null ? null : (o && o.type === 'json' ? JSON.parse(v) : v); },
-    async setJSON(k, v) { m.set(k, JSON.stringify(v)); }
+  const m = new Map(); const tags = new Map(); let n = 0;
+  const st = {
+    m, writes: 0,
+    async get(k, o) { await tick(); const v = m.get(k); return v == null ? null : (o && o.type === 'json' ? JSON.parse(v) : v); },
+    async getWithMetadata(k, o) {
+      await tick();
+      const v = m.get(k);
+      if (v == null) return null;
+      if (!tags.has(k)) tags.set(k, 'e' + (++n));
+      return { data: o && o.type === 'json' ? JSON.parse(v) : v, etag: tags.get(k), metadata: {} };
+    },
+    async setJSON(k, v, o = {}) {
+      await tick();
+      if (o.onlyIfNew && m.has(k)) return { modified: false };
+      if (o.onlyIfMatch && (!m.has(k) || tags.get(k) !== o.onlyIfMatch)) return { modified: false };
+      m.set(k, JSON.stringify(v)); tags.set(k, 'e' + (++n)); st.writes++;
+      return { modified: true, etag: tags.get(k) };
+    }
   };
+  return st;
 }
-const brokenStore = { async get() { throw new Error('MissingBlobsEnvironmentError'); }, async setJSON() { throw new Error('nope'); } };
+const brokenStore = {
+  async get() { throw new Error('MissingBlobsEnvironmentError'); },
+  async getWithMetadata() { throw new Error('MissingBlobsEnvironmentError'); },
+  async setJSON() { throw new Error('nope'); }
+};
 
 // ── log spy ──────────────────────────────────────────────────
 let logs = [];
@@ -176,6 +198,63 @@ await check('Blobs write failure → allowed and logged', async () => {
   const q = await G.takeQuota(USER, 'translate', process.env);
   assert.ok(!q.res);
   assert.ok(logs.some(l => l.includes('"op":"write"')));
+});
+
+await check('70 parallel converse quota takes from one user → exactly 60 pass', async () => {
+  const st = memStore(); G.setUsageStore(st);
+  const rs = await Promise.all(Array.from({ length: 70 }, () => G.takeQuota(USER, 'converse', process.env)));
+  assert.equal(rs.filter(r => !r.res).length, 60);
+  assert.equal(rs.filter(r => r.res && r.res.status === 429).length, 10);
+  assert.equal(JSON.parse(st.m.get(USER.id + ':' + G.dayKey())).converse, 60);
+});
+await check('70 parallel converse requests (full endpoint) → exactly 60 reach Anthropic', async () => {
+  const st = memStore(); G.setUsageStore(st);
+  const rs = await Promise.all(Array.from({ length: 70 }, () => converse(req('/api/converse', TURN_BODY))));
+  assert.equal(rs.filter(r => r.status === 200).length, 60);
+  assert.equal(rs.filter(r => r.status === 429).length, 10);
+  assert.equal(anthropicCalls().length, 60);
+});
+await check('Blobs read ok, write fails → 70 parallel still cap at 60 (memory floor)', async () => {
+  const st = memStore(); st.setJSON = async () => { await tick(); throw new Error('write failed'); };
+  G.setUsageStore(st);
+  const rs = await Promise.all(Array.from({ length: 70 }, () => G.takeQuota(USER, 'converse', process.env)));
+  assert.equal(rs.filter(r => !r.res).length, 60);
+});
+await check('Blobs count below memory count → memory wins (max of both)', async () => {
+  const st = memStore(); G.setUsageStore(st);
+  for (let i = 0; i < 60; i++) assert.ok(!(await G.takeQuota(USER, 'converse', process.env)).res);
+  st.m.set(USER.id + ':' + G.dayKey(), JSON.stringify({ converse: 2, translate: 0 })); // store lost writes
+  assert.equal((await G.takeQuota(USER, 'converse', process.env)).res.status, 429);
+});
+await check('lost race (foreign write between read and write) → retried, no count lost', async () => {
+  const st = memStore(); G.setUsageStore(st);
+  const key = USER.id + ':' + G.dayKey();
+  st.m.set(key, JSON.stringify({ converse: 10, translate: 0 }));
+  const realGet = st.getWithMetadata; let raced = 0;
+  st.getWithMetadata = async (k, o) => {
+    const r = await realGet(k, o);
+    if (raced++ < 2) await st.setJSON(k, { converse: r.data.converse + 1, translate: 0 }); // another instance
+    return r;
+  };
+  const q = await G.takeQuota(USER, 'converse', process.env);
+  assert.ok(!q.res);
+  assert.equal(JSON.parse(st.m.get(key)).converse, 13);
+});
+await check('race never settles → 429 cap_contention after 5 tries', async () => {
+  const st = memStore(); G.setUsageStore(st);
+  let tries = 0;
+  st.setJSON = async () => { tries++; await tick(); return { modified: false }; };
+  const q = await G.takeQuota(USER, 'converse', process.env);
+  assert.equal(q.res.status, 429);
+  assert.equal((await q.res.json()).code, 'cap_contention');
+  assert.equal(tries, 5);
+});
+await check('body over 32 KB → 413 before parsing (converse and translate)', async () => {
+  const big = { text: 'x'.repeat(40000), scene: 'cafe', turns: [] };
+  const sized = (path) => { const r = req(path, big); const h = new Headers(r.headers); h.set('content-length', String(JSON.stringify(big).length)); return new Request(r.url, { method: 'POST', headers: h, body: JSON.stringify(big) }); };
+  assert.equal((await converse(sized('/api/converse'))).status, 413);
+  assert.equal((await translate(sized('/api/translate'))).status, 413);
+  assert.equal(anthropicCalls().length, 0);
 });
 
 // ── converse ─────────────────────────────────────────────────

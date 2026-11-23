@@ -216,7 +216,7 @@ async function talkDebriefAi(t) {
   const you = t.turns.filter(x => x.who === 'you');
   t.busy = false;
   t.result = {
-    done: d ? !!d.goal_done : t.turns.length > 2,
+    done: d ? !!d.goal_done : false,
     turns: you.length,
     clarify: you.filter(x => TALK_CLARIFY.test(talkFold(x.fr))).length,
     hints: t.hintsAi,

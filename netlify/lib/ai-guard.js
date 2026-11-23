@@ -11,10 +11,13 @@
 // Netlify Blobs needs no env: the platform provides its context to functions.
 //
 // Counter: store 'cll-ai-usage', key '<userId>:<YYYY-MM-DD>' (UTC day),
-// value { converse, translate }. Read-modify-write: two calls in the same
-// instant can both pass at the cap edge (an overrun of a call or two at most).
-// If Blobs is unavailable the call is allowed and logged, capped by an
-// in-memory counter per function instance. Auth never fails open.
+// value { converse, translate }. Each take is a compare-and-swap: read with its
+// ETag, write with onlyIfMatch (onlyIfNew for a fresh key), retry on a lost race
+// (5 tries, then 429 'cap_contention'), so parallel calls can't pass the cap.
+// Calls in one function instance also queue per key. The count used is the
+// larger of Blobs and an in-memory per-instance counter, so if Blobs can't be
+// read or written the call is allowed and logged but still capped in memory.
+// Auth never fails open.
 
 export const CAPS = { converse: 60, translate: 100 };
 const BLOB_STORE = 'cll-ai-usage';
@@ -81,35 +84,67 @@ async function usageStore() {
   return getStore({ name: BLOB_STORE, consistency: 'strong' });
 }
 
-// Fallback counter for when Blobs can't be read or written (per instance).
+// Per-instance counter: a floor under the Blobs count and the fallback when
+// Blobs can't be read or written.
 const memUsage = new Map();
 export function resetMemUsage() { memUsage.clear(); }
+const MAX_TRIES = 5;
+
+// Calls for the same key in one instance run one at a time.
+const keyLocks = new Map();
+function withKeyLock(key, fn) {
+  const run = (keyLocks.get(key) || Promise.resolve()).then(fn, fn);
+  const tail = run.then(() => {}, () => {});
+  keyLocks.set(key, tail);
+  tail.then(() => { if (keyLocks.get(key) === tail) keyLocks.delete(key); });
+  return run;
+}
+
+function mergeCounts(a, b) {
+  return {
+    converse: Math.max(Number(a && a.converse) || 0, Number(b && b.converse) || 0),
+    translate: Math.max(Number(a && a.translate) || 0, Number(b && b.translate) || 0)
+  };
+}
+// Raise the memory counter to at least `counts` (never lowers it).
+function bumpMem(key, counts) { memUsage.set(key, mergeCounts(memUsage.get(key), counts)); }
 
 // Count one call against today's cap; refuse at the cap. Returns { left } or { res }.
-export async function takeQuota(user, kind, env, now) {
-  const cap = CAPS[kind];
+export function takeQuota(user, kind, env, now) {
   const key = user.id + ':' + dayKey(now);
-  let counts = null;
+  return withKeyLock(key, () => takeQuotaLocked(user, kind, key));
+}
+
+async function takeQuotaLocked(user, kind, key) {
+  const cap = CAPS[kind];
+  const capRes = () => ({ res: json(429, { error: 'Daily limit reached', code: 'cap', cap }) });
   let store = null;
   let failed = '';
-  try {
-    store = await usageStore();
-    counts = (await store.get(key, { type: 'json' })) || {};
-  } catch (e) {
-    failed = 'read';
+  let seen = null; // last counts read from Blobs
+  try { store = await usageStore(); } catch (e) { failed = 'read'; }
+  for (let attempt = 0; !failed && attempt < MAX_TRIES; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, 5 + Math.floor(Math.random() * 20 * attempt)));
+    let entry;
+    try { entry = await store.getWithMetadata(key, { type: 'json' }); } catch (e) { failed = 'read'; break; }
+    seen = (entry && entry.data) || {};
+    const next = mergeCounts(seen, memUsage.get(key));
+    if (next[kind] >= cap) { bumpMem(key, next); return capRes(); }
+    next[kind] += 1;
+    let w;
+    try {
+      w = await store.setJSON(key, next, entry ? (entry.etag ? { onlyIfMatch: entry.etag } : {}) : { onlyIfNew: true });
+    } catch (e) { failed = 'write'; break; }
+    if (w && w.modified === false) { bumpMem(key, seen); continue; } // lost the race: re-read
+    bumpMem(key, next);
+    return { left: cap - next[kind], used: next[kind], cap };
   }
-  if (failed) counts = memUsage.get(key) || {};
-  const used = Number(counts[kind]) || 0;
-  if (used >= cap) return { res: json(429, { error: 'Daily limit reached', code: 'cap', cap }) };
-  const next = { converse: Number(counts.converse) || 0, translate: Number(counts.translate) || 0 };
-  next[kind] = used + 1;
-  if (!failed) {
-    try { await store.setJSON(key, next); } catch (e) { failed = 'write'; }
-  }
-  if (failed) {
-    memUsage.set(key, next);
-    console.log('[cll-ai] ' + JSON.stringify({ quota_store: 'unavailable', op: failed, kind, user: String(user.id).slice(0, 8) }));
-  }
+  if (!failed) return { res: json(429, { error: 'Busy, try again', code: 'cap_contention', cap }) };
+  // Blobs unavailable: count in memory (no await between read and write here).
+  const next = mergeCounts(seen, memUsage.get(key));
+  if (next[kind] >= cap) { memUsage.set(key, next); return capRes(); }
+  next[kind] += 1;
+  memUsage.set(key, next);
+  console.log('[cll-ai] ' + JSON.stringify({ quota_store: 'unavailable', op: failed, kind, user: String(user.id).slice(0, 8) }));
   return { left: cap - next[kind], used: next[kind], cap };
 }
 

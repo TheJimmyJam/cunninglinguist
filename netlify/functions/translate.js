@@ -62,6 +62,7 @@ export default async (req) => {
   const g = await guard(req, env);
   if (g.res) return g.res;
 
+  if (Number(req.headers.get('content-length') || 0) > 32768) return json(413, { error: 'Too large' });
   let body;
   try { body = await req.json(); } catch { return json(400, { error: 'Invalid JSON' }); }
   const text = clip(body && body.text, 200);
