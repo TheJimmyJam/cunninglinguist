@@ -81,6 +81,8 @@ const ok = (name, cond, info) => { results.push([cond ? 'ok  ' : 'FAIL', name, i
   ok('Day 1 lesson: Paris survival section', d1.hs.some(h => /Paris survival/.test(h)) && d1.items.length === 7, d1.items.slice(0, 3).join(' | '));
   await page.evaluate(() => { const h = [...document.querySelectorAll('h3')].find(x => /Paris survival/.test(x.innerText)); h && h.scrollIntoView(); });
   await page.screenshot({ path: SHOTS + '/s3-lesson1-paris-390.png' });
+  const d2 = await lesson(2);
+  ok('Day 2 lesson: emergency lines + 112 tip', ['Au secours !', "Appelez une ambulance, s'il vous plaît.", 'Appelez la police !'].every(f => d2.items.includes(f)) && /Emergency: 112 \(15 = medical\)/.test(d2.text), d2.items.slice(-3).join(' | '));
   const d6 = await lesson(6);
   ok('Day 6 lesson: December pack', d6.items.includes('Joyeux Noël !') && d6.items.includes("C'est ouvert le 25 ?"), d6.items.length + ' items');
   const d7 = await lesson(7);

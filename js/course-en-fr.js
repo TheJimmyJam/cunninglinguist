@@ -75,8 +75,12 @@ const COURSE_FR = [
       {fr:"Je parle un petit peu français.", ipa:"zhuh parl uhn puh-tee puh frahn-seh", en:"I speak a little French."},
       {fr:"Je suis perdu(e).", ipa:"zhuh swee pair-doo", en:"I'm lost."},
       {fr:"J'ai perdu mon passeport.", ipa:"zhay pair-doo mohn pahss-por", en:"I lost my passport."},
-      {fr:"On m'a volé mon sac.", ipa:"ohn mah voh-lay mohn sahk", en:"My bag was stolen."}
+      {fr:"On m'a volé mon sac.", ipa:"ohn mah voh-lay mohn sahk", en:"My bag was stolen."},
+      {fr:"Au secours !", ipa:"oh suh-koor", en:"Help!"},
+      {fr:"Appelez une ambulance, s'il vous plaît.", ipa:"ah-play oon ahm-boo-lahnss seel voo pleh", en:"Call an ambulance, please."},
+      {fr:"Appelez la police !", ipa:"ah-play lah poh-leess", en:"Call the police!"}
     ],
+    parisTip:"Emergency: 112 (15 = medical).",
     grammar:"Negation in French wraps the verb with 'ne...pas'. 'Je comprends' (I understand) → 'Je NE comprends PAS' (I don't understand). In speech, the 'ne' often drops: 'Je comprends pas'.",
     practice:["Practice asking 'Parlez-vous anglais ?' — it's your safety net.","Say 'Je ne comprends pas, désolé' three times out loud."]
   },
@@ -114,7 +118,7 @@ const COURSE_FR = [
       {fr:"Carte ou espèces ?", ipa:"kart oo es-pess", en:"Card or cash? (you'll hear this)", heard:true},
       {fr:"Une baguette tradition, s'il vous plaît.", ipa:"oon bah-get trah-dee-syohn seel voo pleh", en:"A traditional baguette, please.", alt:["Une tradition, s'il vous plaît."]},
       {fr:"Deux croissants, s'il vous plaît.", ipa:"duh krwah-sahn seel voo pleh", en:"Two croissants, please."},
-      {fr:"Je voudrais deux cents grammes de comté.", ipa:"zhuh voo-dray duh sahn grahm duh kohn-tay", en:"I'd like 200 grams of Comté (cheese).", alt:["Je voudrais 200 grammes de comté."]},
+      {fr:"Je voudrais deux cents grammes de comté.", ipa:"zhuh voo-dray duh sahn grahm duh kohn-tay", en:"I'd like 200 grams of Comté (cheese).", alt:["Je voudrais 200 grammes de comté.","Je voudrais 200 g de comté.","Je voudrais deux cents g de comté."]},
       {fr:"C'est combien, le kilo ?", ipa:"seh kohm-bee-an luh kee-loh", en:"How much is it per kilo?"},
       {fr:"Je peux goûter ?", ipa:"zhuh puh goo-tay", en:"Can I taste it?"},
       {fr:"C'est pour offrir.", ipa:"seh poor oh-freer", en:"It's a gift. (they'll wrap it)"}
@@ -158,14 +162,16 @@ const COURSE_FR = [
     ],
     parisTitle:"Booking & paying",
     paris:[
-      {fr:"Je suis allergique aux fruits à coque.", ipa:"zhuh swee ah-lehr-zheek oh frwee ah kohk", en:"I'm allergic to nuts."},
+      {fr:"Je suis allergique aux fruits à coque.", ipa:"zhuh swee ah-lehr-zheek oh frwee ah kohk", en:"I'm allergic to tree nuts."},
+      {fr:"Je suis allergique aux arachides.", ipa:"zhuh swee ah-lehr-zheek oh zah-rah-sheed", en:"I'm allergic to peanuts.", alt:["Je suis allergique aux cacahuètes."]},
+      {fr:"C'est une allergie grave.", ipa:"seh toon ah-lair-zhee grahv", en:"It's a serious allergy."},
       {fr:"Vous avez une table pour deux ?", ipa:"voo zah-vay oon tahbl poor duh", en:"Do you have a table for two?"},
       {fr:"Une table pour deux à vingt heures, s'il vous plaît.", ipa:"oon tahbl poor duh ah van tuhr seel voo pleh", en:"A table for two at 8 pm, please.", alt:["Une table pour deux à 20 heures, s'il vous plaît.","Une table pour deux à 20 h, s'il vous plaît."]},
       {fr:"Je voudrais réserver pour quatre personnes ce soir.", ipa:"zhuh voo-dray ray-zair-vay poor katr pair-sun suh swahr", en:"I'd like to book for four people tonight.", alt:["Je voudrais réserver pour 4 personnes ce soir."]},
       {fr:"Il y a une erreur dans l'addition.", ipa:"eel yah oon eh-ruhr dahn lah-dee-syohn", en:"There's a mistake in the bill."},
       {fr:"Ma carte ne passe pas.", ipa:"mah kart nuh pahss pah", en:"My card isn't going through."},
       {fr:"Je peux payer sans contact ?", ipa:"zhuh puh pay-yay sahn kohn-takt", en:"Can I pay contactless?"},
-      {fr:"Je peux avoir un reçu ?", ipa:"zhuh puh ah-vwahr uhn ruh-soo", en:"Can I have a receipt?"}
+      {fr:"Je peux avoir un reçu ?", ipa:"zhuh puh ah-vwahr uhn ruh-soo", en:"Can I have a receipt?", alt:["Je peux avoir le ticket ?","Je peux avoir une note ?"]}
     ],
     grammar:"Important pronunciation rule: 'six' and 'dix' sound like 'seess'/'deess' alone, but the final 's' goes silent before a consonant ('six pommes' → 'see pum') and becomes a 'z' sound before a vowel ('six ans' → 'seez ahn').",
     practice:["Count 0-20 out loud three times.","Practice prices: 'cinq euros', 'douze euros', 'dix-huit euros'."]
@@ -193,7 +199,7 @@ const COURSE_FR = [
       {fr:"C'est quatre-vingts euros.", ipa:"seh katr-van zuh-roh", en:"It's eighty euros.", alt:["C'est 80 euros."]},
       {fr:"J'ai cinquante euros.", ipa:"zhay san-kahnt uh-roh", en:"I have fifty euros."},
       {fr:"Le prix est soixante-dix.", ipa:"luh pree eh swah-sahnt-deess", en:"The price is seventy."},
-      {fr:"Vous avez la monnaie sur cinquante euros ?", ipa:"voo zah-vay lah moh-neh soor san-kahnt uh-roh", en:"Do you have change for fifty euros?", alt:["Vous avez la monnaie sur 50 euros ?"]},
+      {fr:"Vous auriez la monnaie sur cinquante euros ?", ipa:"voo zoh-ryay lah moh-neh soor san-kahnt uh-roh", en:"Do you have change for fifty euros?", alt:["Vous auriez la monnaie sur 50 euros ?","Vous avez la monnaie sur cinquante euros ?","Vous avez la monnaie sur 50 euros ?"]},
       {fr:"C'est trop cher.", ipa:"seh troh shair", en:"It's too expensive."},
       {fr:"Vous avez quelque chose à moins de cent euros ?", ipa:"voo zah-vay kel-kuh shohz ah mwan duh sahn uh-roh", en:"Do you have something under a hundred euros?"}
     ],
@@ -207,6 +213,7 @@ const COURSE_FR = [
       {fr:"Vous avez quelque chose contre le rhume ?", ipa:"voo zah-vay kel-kuh shohz kohntr luh room", en:"Do you have something for a cold?", alt:["Vous avez quelque chose pour le rhume ?"]},
       {fr:"Vous avez quelque chose pour la toux ?", ipa:"voo zah-vay kel-kuh shohz poor lah too", en:"Do you have something for a cough?", alt:["Vous avez quelque chose contre la toux ?"]},
       {fr:"Vous avez des allergies ?", ipa:"voo zah-vay day zah-lair-zhee", en:"Do you have any allergies? (you'll hear this)", heard:true},
+      {fr:"Vous prenez d'autres médicaments ?", ipa:"voo pruh-nay doh-truh may-dee-kah-mahn", en:"Are you taking any other medication? (you'll hear this)", heard:true},
       {fr:"Le chauffage ne marche pas.", ipa:"luh shoh-fahzh nuh marsh pah", en:"The heating isn't working."},
       {fr:"Où est la pharmacie la plus proche ?", ipa:"oo eh lah far-mah-see lah ploo prohsh", en:"Where's the nearest pharmacy?"},
       {fr:"J'ai besoin d'un médecin.", ipa:"zhay buh-zwan duhn mayd-san", en:"I need a doctor."}
@@ -251,7 +258,8 @@ const COURSE_FR = [
       {fr:"Nous arrivons le vingt décembre.", ipa:"noo zah-ree-vohn luh van day-sahmbr", en:"We arrive on December 20th.", alt:["Nous arrivons le 20 décembre.","On arrive le vingt décembre.","On arrive le 20 décembre."]},
       {fr:"Joyeux Noël !", ipa:"zhwah-yuh noh-el", en:"Merry Christmas!"},
       {fr:"Bonnes fêtes !", ipa:"buhn fet", en:"Happy holidays!"},
-      {fr:"Bonne année !", ipa:"buhn ah-nay", en:"Happy New Year!"},
+      {fr:"Bonne année !", ipa:"buhn ah-nay", en:"Happy New Year! (from Jan 1st on)"},
+      {fr:"Bon réveillon !", ipa:"bohn ray-vay-yohn", en:"Have a good Christmas Eve / New Year's Eve!"},
       {fr:"C'est ouvert le 25 ?", ipa:"seh too-vair luh vant-sank", en:"Is it open on the 25th?", alt:["C'est ouvert le vingt-cinq ?"]},
       {fr:"C'est fermé le jour de Noël.", ipa:"seh fair-may luh zhoor duh noh-el", en:"It's closed on Christmas Day. (you'll hear this)", heard:true},
       {fr:"On ferme à dix-neuf heures.", ipa:"ohn fairm ah deez-nuh vuhr", en:"We close at 7 pm. (you'll hear this)", heard:true, alt:["On ferme à 19 heures.","On ferme à 19 h."]},
@@ -289,7 +297,7 @@ const COURSE_FR = [
       {fr:"Je voudrais un passe Navigo Easy, s'il vous plaît.", ipa:"zhuh voo-dray uhn pahss nah-vee-goh ee-zee seel voo pleh", en:"I'd like a Navigo Easy card, please."},
       {fr:"Je voudrais recharger mon passe.", ipa:"zhuh voo-dray ruh-shar-zhay mohn pahss", en:"I'd like to top up my card."},
       {fr:"Je peux acheter un ticket sur mon téléphone ?", ipa:"zhuh puh ahsh-tay uhn tee-keh soor mohn tay-lay-fun", en:"Can I buy a ticket on my phone?"},
-      {fr:"Prenez la ligne 4 en correspondance.", ipa:"pruh-nay lah leen-yuh katr ahn koh-res-pohn-dahnss", en:"Change to line 4. (you'll hear this)", heard:true, alt:["Prenez la ligne quatre en correspondance."]},
+      {fr:"Prenez la ligne 4 en correspondance.", ipa:"pruh-nay lah leen-yuh katr ahn koh-res-pohn-dahnss", en:"Change to line 4. (you'll hear this)", heard:true, alt:["Prenez la ligne quatre en correspondance.","Prenez la correspondance pour la ligne 4.","Prenez la correspondance pour la ligne quatre."]},
       {fr:"Il faut changer où ?", ipa:"eel foh shahn-zhay oo", en:"Where do I change?"},
       {fr:"Il y a une grève aujourd'hui ?", ipa:"eel yah oon grev oh-zhoor-dwee", en:"Is there a strike today?"},
       {fr:"Le train a du retard.", ipa:"luh tran ah doo ruh-tar", en:"The train is delayed."},
@@ -436,7 +444,7 @@ const COURSE_FR = [
     ],
     phrases:[
       {fr:"Je suis végétarien.", ipa:"zhuh swee vay-zhay-tah-ree-an", en:"I'm vegetarian."},
-      {fr:"Je suis allergique aux fruits à coque.", ipa:"zhuh swee ah-lehr-zheek oh frwee ah kohk", en:"I'm allergic to nuts."},
+      {fr:"Je suis allergique aux fruits à coque.", ipa:"zhuh swee ah-lehr-zheek oh frwee ah kohk", en:"I'm allergic to tree nuts."},
       {fr:"Je suis allergique aux arachides.", ipa:"zhuh swee ah-lehr-zheek oh zah-rah-sheed", en:"I'm allergic to peanuts.", alt:["Je suis allergique aux cacahuètes."]},
       {fr:"Il y a des fruits à coque dedans ?", ipa:"eel yah day frwee ah kohk duh-dahn", en:"Are there nuts in it?"},
       {fr:"Saignant, s'il vous plaît.", ipa:"sehn-yahn seel voo pleh", en:"Rare, please."},
@@ -607,7 +615,7 @@ const COURSE_FR = [
       {fr:"C'est la bonne direction pour Châtelet ?", ipa:"seh lah buhn dee-rek-syohn poor shah-tuh-leh", en:"Is this the right direction for Châtelet?"},
       {fr:"À quelle heure part le prochain métro ?", ipa:"ah kel uhr par luh proh-shan may-troh", en:"What time does the next metro leave?"},
     ],
-    grammar:"Métro lines are numbered (1, 4, 14...) but you navigate by DIRECTION — the name of the last station on the line. So 'Line 1, direction La Défense' tells you which platform. Paper tickets are gone: buy a Navigo Easy card (€2) at a station counter or machine and load single 'Métro-Train-RER' tickets onto it (€2.55 each in 2026), or buy tickets on your phone in the Île-de-France Mobilités app. Tap the card on the reader at the gate ('valider'). The airport trip needs its own ticket, so ask: 'Quel ticket me faut-il pour aller à Paris ?'",
+    grammar:"Métro lines are numbered (1, 4, 14...) but you navigate by DIRECTION — the name of the last station on the line. So 'Line 1, direction La Défense' tells you which platform. Paper tickets are being phased out: buy a Navigo Easy card (€2) at a station counter or machine and load single 'Métro-Train-RER' tickets onto it (€2.55 each in 2026), or buy tickets on your phone in the Île-de-France Mobilités app. Tap the card on the reader at the gate ('valider'). The airport trip needs its own ticket, so ask: 'Quel ticket me faut-il pour aller à Paris ?'",
     practice:["Look up the métro line for the Louvre and say it.","Practice: 'Excusez-moi, comment aller à [station]?'"]
   },
   { day:19, title:"Taxis, Uber & Trains", titleNative:"Taxis, Uber & Trains", focus:"Beyond the métro.",
@@ -789,7 +797,6 @@ const COURSE_FR = [
       {fr:"on m'a volé", ipa:"ohn mah voh-lay", en:"I was robbed"}
     ],
     phrases:[
-      {fr:"Appelez une ambulance, s'il vous plaît.", ipa:"ah-play oon ahm-boo-lahnss seel voo pleh", en:"Call an ambulance, please."},
       {fr:"J'ai mal à la tête.", ipa:"zhay mahl ah lah tet", en:"I have a headache."},
       {fr:"Je dois aller aux urgences.", ipa:"zhuh dwah ah-lay oh zoor-zhahnss", en:"I need to go to the emergency room."},
       {fr:"Où est le commissariat ?", ipa:"oo eh luh koh-mee-sah-ryah", en:"Where is the police station?"}

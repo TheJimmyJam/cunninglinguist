@@ -57,9 +57,10 @@
     setCard(store, key, dir, c);
     return c;
   }
-  function introduce(store, key, now) {
+  // recOnly: a line you'll hear but not say gets no production card.
+  function introduce(store, key, now, recOnly) {
     if (!getCard(store, key, 'rec')) setCard(store, key, 'rec', newCard(now));
-    if (!getCard(store, key, 'prod')) setCard(store, key, 'prod', newCard(now));
+    if (!recOnly && !getCard(store, key, 'prod')) setCard(store, key, 'prod', newCard(now));
   }
   function isNew(store, key) { return !store.cards[key]; }
 
@@ -190,6 +191,18 @@
     return out;
   }
   // Display text with the notes kept but no alternatives: what to show as "the answer".
+  // "…, s'il vous plaît." is optional in a typed answer: add the version without it.
+  var SVP_TAIL = /[\s,]*s'il vous pla[iî]t\s*([.!?…]*)\s*$/i;
+  function withOptionalPlease(variants) {
+    var out = variants.slice();
+    variants.forEach(function (v) {
+      var u = unifyApostrophes(v);
+      if (!SVP_TAIL.test(u)) return;
+      var w = u.replace(SVP_TAIL, '$1').trim();
+      if (answerKey(w, 'fr', false) && out.indexOf(w) === -1) out.push(w);
+    });
+    return out;
+  }
   function displayAnswer(display) { return String(display || '').split(/\s+\/\s+|\s*\|\s*/)[0].trim(); }
 
   // → { ok, nudge (right but accents off), expected }
@@ -197,6 +210,7 @@
     opts = opts || {};
     var lang = opts.lang || 'fr';
     var variants = answerVariants(display, opts.alts);
+    if (lang === 'fr') variants = withOptionalPlease(variants);
     var res = { ok: false, nudge: false, expected: displayAnswer(display) };
     if (!String(typed || '').trim() || !variants.length) return res;
     var exact = answerKey(typed, lang, true);

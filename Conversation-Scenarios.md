@@ -110,10 +110,10 @@ These are the conversations you'll actually have. Practice each one out loud, ta
 - Ask about a transit pass: `Vous avez un passe pour la semaine ?`
 - From the airport: `Quel ticket me faut-il pour aller à Paris ?`
 - Top up your card: `Je voudrais recharger mon passe.`
-
-*Paper tickets are gone. A Navigo Easy card costs €2 and each Métro-Train-RER ticket €2.55 (2026 fares, Île-de-France Mobilités); you can also buy tickets on your phone in the Île-de-France Mobilités app.*
 - Confirm transfers: `Il faut changer ?`
 - Ask about the last train: `À quelle heure est le dernier métro ?`
+
+*Paper tickets are being phased out; use a Navigo Easy card or your phone. A Navigo Easy card costs €2 and each Métro-Train-RER ticket €2.55 (2026 fares, Île-de-France Mobilités).*
 
 ---
 

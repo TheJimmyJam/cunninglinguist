@@ -80,7 +80,11 @@ check('old exact-text review cards migrate to folded keys, keeping the further-a
 check('allergy line (safety): tree nuts and peanuts, no "aux noix"', () => {
   const nuts = byFr('Je suis allergique aux fruits à coque.');
   assert.ok(nuts.length >= 1 && nuts.some(i => i.list === 'paris'), 'tree-nut line missing or not in week one');
-  assert.ok(byFr('Je suis allergique aux arachides.').length === 1);
+  const peanuts = byFr('Je suis allergique aux arachides.');
+  assert.ok(peanuts.some(i => i.list === 'paris' && i.day <= 7), 'peanut line not in week one');
+  nuts.concat(peanuts).forEach(i => assert.match(i.en, nuts.includes(i) ? /tree nuts/ : /peanuts/, 'day ' + i.day));
+  assert.ok(byFr("C'est une allergie grave.").some(i => i.list === 'paris' && i.day === 4));
+  assert.equal(study.filter(i => i.key === S.itemKey('Je suis allergique aux arachides.')).length, 1, 'one card for the peanut line');
   assert.equal(/allergique aux noix/i.test(courseSrc), false);
 });
 check('steak doneness: saignant rare, à point medium-rare/medium, bien cuit well-done', () => {
@@ -153,6 +157,75 @@ check('accepted alternatives grade as right', () => {
   assert.equal(g('le 25 décembre', 'le vingt-cinq décembre').ok, true);
   assert.equal(g('Une tradition, s’il vous plaît', "Une baguette tradition, s'il vous plaît.").ok, true);
   assert.equal(g('Je suis allergique aux fruits a coque', 'Je suis allergique aux fruits à coque.').nudge, true);
+});
+
+check('emergency lines in day 2 (When you are stuck), 112 tip', () => {
+  const d2 = COURSE.find(d => d.day === 2);
+  ['Au secours !', "Appelez une ambulance, s'il vous plaît.", 'Appelez la police !']
+    .forEach(fr => assert.ok(d2.paris.some(i => i.fr === fr), 'day 2 missing ' + fr));
+  assert.equal(byFr("Appelez une ambulance, s'il vous plaît.").length, 1, 'ambulance line moved, not copied');
+  assert.match(d2.parisTip, /112/);
+  assert.match(d2.parisTip, /15 = medical/);
+  assert.ok(COURSE.find(d => d.day === 25).phrases.length >= 3);
+});
+check('other listed content fixes', () => {
+  assert.ok(byFr("Vous prenez d'autres médicaments ?").some(i => i.heard && i.day === 5));
+  assert.match(byFr('Bonne année !')[0].en, /from Jan 1st on/);
+  assert.equal(byFr('Bon réveillon !').length, 1);
+  const change = byFr('Vous auriez la monnaie sur cinquante euros ?');
+  assert.equal(change.length, 1);
+  assert.ok(change[0].alt.includes('Vous avez la monnaie sur cinquante euros ?'));
+  assert.ok(byFr('Prenez la ligne 4 en correspondance.')[0].alt.includes('Prenez la correspondance pour la ligne 4.'));
+  const rec = byFr('Je peux avoir un reçu ?')[0].alt;
+  assert.ok(rec.includes('Je peux avoir le ticket ?') && rec.includes('Je peux avoir une note ?'));
+  const i = scenesMd.indexOf('Paper tickets are being phased out; use a Navigo Easy card or your phone.');
+  assert.ok(i > 0 && i > scenesMd.indexOf('dernier métro'), 'ticket note missing or above the Variations bullets');
+});
+check("grader: trailing s'il vous plaît optional; 200 g accepted", () => {
+  const g = (typed, fr) => { const it = all.find(i => i.fr === fr); return S.gradeAnswer(typed, it.fr, { lang: 'fr', alts: it.alt }); };
+  assert.equal(g('Appelez une ambulance', "Appelez une ambulance, s'il vous plaît.").ok, true);
+  assert.equal(g("Appelez une ambulance, s'il vous plaît", "Appelez une ambulance, s'il vous plaît.").ok, true);
+  assert.equal(g('Un instant', "Un instant, s'il vous plaît.").ok, true);
+  assert.equal(g('Appelez une', "Appelez une ambulance, s'il vous plaît.").ok, false);
+  assert.equal(g('Je voudrais 200 g de comté', 'Je voudrais deux cents grammes de comté.').ok, true);
+  assert.equal(S.gradeAnswer('', "S'il vous plaît.", { lang: 'fr' }).ok, false);
+});
+
+// The real Today session builder and note-stripping helpers from app.js, run against stubs.
+function sliceFn(name) {
+  const start = appSrc.indexOf('function ' + name + '(');
+  assert.ok(start > 0, name + ' not found in app.js');
+  const end = appSrc.indexOf('\nfunction ', start + 10);
+  return appSrc.slice(start, end);
+}
+check('heard:true lines are never production prompts; no "(" notes in listening options', () => {
+  const helpers = ['stripNote', 'cleanBack', 'isHeardOnly'].map(sliceFn).join('\n');
+  const map = new Map(study.map(i => [i.key, i]));
+  const store = S.emptyStore();
+  const env = new Function('CLSRS', 'srs', 'studyItems', 'studyItem', 'getBackWord', 'shuffled', 'CONVERSATIONS',
+    helpers + '\n' + sliceFn('buildTodaySession') + '\nreturn { buildTodaySession, stripNote, cleanBack, isHeardOnly };')(
+    S, store, () => study, k => map.get(k), v => v.en || '', a => a.slice(), []);
+  assert.equal(env.stripNote("Change to line 4. (you'll hear this)"), 'Change to line 4.');
+  assert.equal(env.stripNote('Thanks (polite)'), 'Thanks');
+  assert.equal(env.stripNote('(polite)'), '(polite)');
+  const heard = study.filter(i => i.heard);
+  assert.ok(heard.length >= 8, 'heard items: ' + heard.length);
+  let recalls = 0, listens = 0;
+  for (let n = 0; n < 40; n++) {
+    const sess = env.buildTodaySession('10');
+    sess.steps.forEach(st => {
+      const it = map.get(st.key);
+      if (st.t === 'intro') S.introduce(store, st.key, 0, env.isHeardOnly(it));
+      if (st.t === 'recall') { recalls++; assert.ok(!it.heard, 'recall prompt for heard line: ' + it.fr); assert.doesNotMatch(env.cleanBack(it), /\(/); }
+      if (st.t === 'listen') { listens++; st.opts.forEach(o => assert.doesNotMatch(o, /\([^)]*\)\s*[.!?]*$/, 'note in option: ' + o)); }
+    });
+    Object.values(store.cards).forEach(e => ['rec', 'prod'].forEach(d => { if (e[d]) e[d].due = 0; }));
+  }
+  assert.ok(recalls > 50 && listens > 50, `recalls ${recalls}, listens ${listens}`);
+  heard.forEach(i => { assert.ok(store.cards[i.key] && store.cards[i.key].rec, 'heard line never introduced: ' + i.fr); assert.equal(store.cards[i.key].prod, undefined, 'production card for ' + i.fr); });
+  // Quiz: type-it never asks to produce a heard line; MC shows it French → English.
+  assert.match(appSrc, /const produce = !isHeardOnly\(item\) && Math\.random\(\) > 0\.5;/);
+  assert.match(appSrc, /const showFrontToBack = \(isTargetEnglish\(\) \|\| isHeardOnly\(item\)\)/);
 });
 
 console.log(`\n${passes} passed, ${failures} failed`);
