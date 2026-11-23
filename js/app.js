@@ -85,35 +85,35 @@ const PAIRS = {
   'en-fr': { source:'en', target:'fr', courseKey:'fr', storageKey:'french_learner_v1',    recentKey:'french_translator_recent',
              subtitle:'English → French',     tagline:'30 days to café-confidence',
              inputPlaceholder:'e.g. where is the bathroom',
-             translatorSubtitle:'Type any English word or phrase. Get the French translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the French translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-es': { source:'en', target:'es', courseKey:'es', storageKey:'spanish_learner_v1',   recentKey:'spanish_translator_recent',
              subtitle:'English → Spanish',    tagline:'30 days to tapas-confidence',
              inputPlaceholder:'e.g. where is the bathroom',
-             translatorSubtitle:'Type any English word or phrase. Get the Spanish translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Spanish translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-sq': { source:'en', target:'sq', courseKey:'sq', storageKey:'albanian_learner_v1',  recentKey:'albanian_translator_recent',
              subtitle:'English → Albanian',   tagline:'30 days to Tirana-confidence',
              inputPlaceholder:'e.g. where is the bathroom',
-             translatorSubtitle:'Type any English word or phrase. Get the Albanian translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Albanian translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-it': { source:'en', target:'it', courseKey:'it', storageKey:'italian_learner_v1',   recentKey:'italian_translator_recent',
              subtitle:'English → Italian',    tagline:'30 days to aperitivo-confidence',
              inputPlaceholder:'e.g. where is the bathroom',
-             translatorSubtitle:'Type any English word or phrase. Get the Italian translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Italian translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-pt': { source:'en', target:'pt', courseKey:'pt', storageKey:'portuguese_learner_v1',recentKey:'portuguese_translator_recent',
              subtitle:'English → Portuguese', tagline:'30 days to Rio-confidence',
              inputPlaceholder:'e.g. where is the beach',
-             translatorSubtitle:'Type any English word or phrase. Get the Brazilian Portuguese translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Brazilian Portuguese translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-el': { source:'en', target:'el', courseKey:'el', storageKey:'greek_learner_v1',     recentKey:'greek_translator_recent',
              subtitle:'English → Greek',      tagline:'30 days to Athens-confidence',
              inputPlaceholder:'e.g. where is the Acropolis',
-             translatorSubtitle:'Type any English word or phrase. Get the Greek translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Greek translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-ja': { source:'en', target:'ja', courseKey:'ja', storageKey:'japanese_learner_v1',  recentKey:'japanese_translator_recent',
              subtitle:'English → Japanese',   tagline:'30 days to Tokyo-confidence',
              inputPlaceholder:'e.g. where is the train station',
-             translatorSubtitle:'Type any English word or phrase. Get the Japanese translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Japanese translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-de': { source:'en', target:'de', courseKey:'de', storageKey:'german_learner_v1',    recentKey:'german_translator_recent',
              subtitle:'English → German',     tagline:'30 days to Berlin-confidence',
              inputPlaceholder:'e.g. where is the train station',
-             translatorSubtitle:'Type any English word or phrase. Get the German translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the German translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-ko': { source:'en', target:'ko', courseKey:'ko', storageKey:'korean_learner_v1',    recentKey:'korean_translator_recent',
              subtitle:'English → Korean',     tagline:'30 days to Seoul-confidence',
              inputPlaceholder:'e.g. where is the subway station',
@@ -122,11 +122,11 @@ const PAIRS = {
   'en-nl': { source:'en', target:'nl', courseKey:'nl', storageKey:'en_nl_learner_v1', recentKey:'en_nl_translator_recent',
              subtitle:'English → Dutch',     tagline:'30 days to Amsterdam-confidence',
              inputPlaceholder:'e.g. where is the train station',
-             translatorSubtitle:'Type any English word or phrase. Get the Dutch translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Dutch translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-ru': { source:'en', target:'ru', courseKey:'ru', storageKey:'en_ru_learner_v1', recentKey:'en_ru_translator_recent',
              subtitle:'English → Russian',   tagline:'30 days to Moscow-confidence',
              inputPlaceholder:'e.g. where is the metro',
-             translatorSubtitle:'Type any English word or phrase. Get the Russian translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Russian translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   'en-zh': { source:'en', target:'zh', courseKey:'zh', storageKey:'en_zh_learner_v1', recentKey:'en_zh_translator_recent',
              subtitle:'English → Mandarin',  tagline:'30 days to Beijing-confidence',
              inputPlaceholder:'e.g. where is the restaurant',
@@ -142,7 +142,7 @@ const PAIRS = {
   'en-tr': { source:'en', target:'tr', courseKey:'tr', storageKey:'en_tr_learner_v1', recentKey:'en_tr_translator_recent',
              subtitle:'English → Turkish',   tagline:'30 days to Istanbul-confidence',
              inputPlaceholder:'e.g. where is the bazaar',
-             translatorSubtitle:'Type any English word or phrase. Get the Turkish translation, IPA, and a pronunciation guide. Tap the speaker to hear it.' },
+             translatorSubtitle:'Type any English word or phrase. Get the Turkish translation and a sounds-like pronunciation guide. Tap the speaker to hear it.' },
   // ── X → English (reverse pairs) ─────────────────────────────────────────────
   'fr-en': { source:'fr', target:'en', courseKey:'fr', storageKey:'fr_en_learner_v1', recentKey:'fr_en_translator_recent',
              subtitle:'Français → English',   tagline:'30 jours pour maîtriser l\'anglais',
@@ -228,7 +228,7 @@ const PAIRS = {
         subtitle:    `${LANGS[src].label} → ${LANGS[tgt].label}`,
         tagline:     `30 days to confidence in ${LANGS[tgt].label}`,
         inputPlaceholder: 'e.g. hello',
-        translatorSubtitle: `Translate from ${LANGS[src].label} to ${LANGS[tgt].label}. Get the translation, IPA, and a pronunciation guide.`
+        translatorSubtitle: `Translate from ${LANGS[src].label} to ${LANGS[tgt].label}. Get the translation and a sounds-like pronunciation guide.`
       };
     });
   });
@@ -263,7 +263,7 @@ nav_lessons:'Lessons', nav_more:'More',
     flash_deck:'Deck', flash_days_seen:'Days I\'ve seen',
     flash_all_days:'All 30 days + saved', flash_need_work:'Need more work',
     flash_saved_words:'My saved words', flash_shuffle:'⇄ Shuffle', flash_mode:'Mode',
-    flash_ipa_on:'IPA on front', flash_challenge:'Challenge',
+    flash_ipa_on:'Sounds-like on front', flash_challenge:'Challenge',
     flash_need_btn:'Need work', flash_skip:'Skip', flash_got_it:'Got it ✓',
     flash_tap_flip:'Tap to flip', flash_say_it:'Say it — then flip',
     flash_empty_saved:'No saved words yet. Use the Translator tab and tap "+ Save to flashcards" to build your custom deck.',
@@ -310,7 +310,7 @@ nav_lessons:'Lessons', nav_more:'More',
     toast_added_review:'📍 Added to Review Queue',
     toast_removed:'Removed from flashcards', toast_saved:'✓ Saved to flashcards',
     toast_day_incomplete:(n)=>`Day ${n} marked incomplete.`,
-    trans_subtitle_cross:(s,tg)=>`Translate from ${s} to ${tg}. Get the translation, IPA, and a pronunciation guide.`,
+    trans_subtitle_cross:(s,tg)=>`Translate from ${s} to ${tg}. Get the translation and a sounds-like pronunciation guide.`,
   },
   es: {
     nav_lesson:'Lección de Hoy', nav_flashcards:'Flashcards', nav_quiz:'Quiz',
@@ -1400,6 +1400,9 @@ function getNative(v) {
   const ck = currentPair().courseKey;
   return v[ck] || v.fr || v.native || '';
 }
+// Review-card key: the target text with case and sentence punctuation folded,
+// so "Au revoir" and "au revoir" are one card (CLSRS.itemKey).
+function studyKey(v) { return CLSRS.itemKey(getNative(v)); }
 
 // Front of card = target language word (what you're learning).
 // If target IS English (e.g. fr-en), the English word goes on front.
@@ -1414,6 +1417,15 @@ function getBackWord(v) {
   if (src === 'en') return v.en || '';
   return v[src] || v.en || '';
 }
+// Back word without a trailing note like "(you'll hear this)" or "(polite)":
+// for answer options and typing prompts. Lesson view keeps the note.
+function stripNote(s) {
+  const out = String(s || '').replace(/\s*\([^()]*\)\s*([.!?…]*)\s*$/, '$1').trim();
+  return out || String(s || '');
+}
+function cleanBack(v) { return stripNote(getBackWord(v)); }
+// heard:true lines are ones you'll hear, not say: recognition only.
+function isHeardOnly(v) { return !!(v && v.heard); }
 
 // TTS: always speak the TARGET language word.
 function getSpeakWord(v) {
@@ -1521,6 +1533,11 @@ function loadSrs() {
     CLSRS.migrateLearned(st, state.learnedCards, Date.now());
     try { localStorage.setItem(getSrsKey(), JSON.stringify(st)); } catch (e) {}
   }
+  if (st.keysV !== 2) {
+    // Exact-text keys → folded keys (one card per phrase, the further-along card wins).
+    CLSRS.migrateKeys(st);
+    try { localStorage.setItem(getSrsKey(), JSON.stringify(st)); } catch (e) {}
+  }
   return st;
 }
 function saveSrs() {
@@ -1614,7 +1631,7 @@ function getQuizStars(correct, total) {
 function isDayMastered(dayNum) {
   const day = COURSE.find(d => d.day === dayNum);
   if (!day || !state.completedDays.includes(dayNum)) return false;
-  const masteredCount = day.vocab.filter(v => isKeyMastered(getNative(v))).length;
+  const masteredCount = day.vocab.filter(v => isKeyMastered(studyKey(v))).length;
   return day.vocab.length > 0 && masteredCount / day.vocab.length >= 0.8;
 }
 
@@ -1834,6 +1851,20 @@ function renderLessonView(dayNum) {
       `).join('')}
     </div>
 
+    ${Array.isArray(day.paris) && day.paris.length ? `
+    <h3>Paris survival${day.parisTitle ? `: ${day.parisTitle}` : ''}</h3>
+    <div class="phrase-list paris-list">
+      ${day.paris.map(p => `
+        <div class="phrase">
+          <div class="fr">${getFrontWord(p)}</div>
+          <div class="ipa">${p.ipa || p.phonetic || ''}</div>
+          <div class="en">${getBackWord(p)}</div>
+          <button class="speak-btn speak-btn-sm" onclick="speakWord('${getSpeakWord(p).replace(/'/g,"\\'")}','${currentTarget()}')">🔊</button>
+        </div>
+      `).join('')}
+    </div>
+    ${day.parisTip ? `<div class="grammar-box paris-tip"><p>${day.parisTip}</p></div>` : ''}` : ''}
+
     <h3>${t('lesson_grammar_tip')}</h3>
     <div class="grammar-box">
       <p>${day.grammar}</p>
@@ -2035,8 +2066,8 @@ function rebuildFlashPool() {
   // Spaced repetition: only cards that are new or due (unless practising anyway)
   const now = Date.now();
   const seen = new Set();
-  pool = pool.filter(v => { const k = getNative(v); if (!k || seen.has(k)) return false; seen.add(k); return true; });
-  const isReady = v => { const c = CLSRS.getCard(srs, getNative(v), 'rec'); return !c || c.due <= now; };
+  pool = pool.filter(v => { const k = studyKey(v); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+  const isReady = v => { const c = CLSRS.getCard(srs, studyKey(v), 'rec'); return !c || c.due <= now; };
   flashState.later = flashState.practiceAll ? 0 : pool.filter(v => !isReady(v)).length;
   if (!flashState.practiceAll) pool = pool.filter(isReady);
   flashState.pool = pool;
@@ -2053,7 +2084,7 @@ function shufflePool() {
 function markCard(type) {
   const card = flashState.pool[flashState.index];
   if (!card) return;
-  const key = getNative(card);
+  const key = studyKey(card);
   const ok = type === 'got';
   CLSRS.grade(srs, key, 'rec', ok, Date.now());
   saveSrs();
@@ -2400,7 +2431,7 @@ function generateQuiz() {
       const pairs = [];
       const seenL = new Set(), seenR = new Set();
       [...learned].sort(() => Math.random() - 0.5).forEach(v => {
-        const l = getFrontWord(v), r = getBackWord(v);
+        const l = getFrontWord(v), r = cleanBack(v);
         const kl = CLSRS.answerKey(l, 'fr', false), kr = CLSRS.answerKey(r, 'en', false);
         if (pairs.length >= 4 || !l || !r || seenL.has(kl) || seenR.has(kr)) return;
         seenL.add(kl); seenR.add(kr);
@@ -2425,26 +2456,26 @@ function generateQuiz() {
       // Direction: show front word → guess back word, or vice versa.
       // When target is English (X-en), always show native→English.
       // Otherwise randomise 50/50.
-      const showFrontToBack = isTargetEnglish() ? true : Math.random() > 0.5;
-      const correctText = showFrontToBack ? getBackWord(item) : getFrontWord(item);
+      const showFrontToBack = (isTargetEnglish() || isHeardOnly(item)) ? true : Math.random() > 0.5;
+      const correctText = showFrontToBack ? cleanBack(item) : getFrontWord(item);
       const candidates = all.filter(v => getFrontWord(v) !== getFrontWord(item)).sort(() => Math.random() - 0.5)
-        .map(w => showFrontToBack ? getBackWord(w) : getFrontWord(w));
+        .map(w => showFrontToBack ? cleanBack(w) : getFrontWord(w));
       const opts = CLSRS.uniqueOptions(correctText, candidates, 4).sort(() => Math.random() - 0.5);
       quizState.questions.push({
         type: 'mc',
         prompt: showFrontToBack
           ? t('quiz_what_does', getFrontWord(item), sourceLabel)
-          : t('quiz_how_say', getBackWord(item), targetLabel),
+          : t('quiz_how_say', cleanBack(item), targetLabel),
         options: opts,
         correct: correctText
       });
     } else {
       // Half the time produce the target language (English → French), half recognise it
-      const produce = Math.random() > 0.5;
+      const produce = !isHeardOnly(item) && Math.random() > 0.5;
       quizState.questions.push({
         type: 'type-it',
         prompt: produce
-          ? t('quiz_how_say', getBackWord(item), targetLabel)
+          ? t('quiz_how_say', cleanBack(item), targetLabel)
           : t('quiz_what_does', getFrontWord(item), sourceLabel),
         correct: produce ? getFrontWord(item) : getBackWord(item),
         answerLang: produce ? currentTarget() : currentSource(),
@@ -3032,26 +3063,40 @@ function getTodayKey() { return 'cll_today_' + currentLang; }
 let todaySession = null;
 let todayPaused = true; // a saved session opens on the start screen with Resume
 
-// Every vocab word and phrase once, keyed by its target-language text.
-// Within a day, words and phrases alternate so new items include both.
+// Every vocab word and phrase once, keyed by its folded target-language text
+// (studyKey). Within a day, words and phrases alternate so new items include
+// both. Paris-pack items (day.paris, week one of en-fr) come two for every one
+// track item, so the survival pack is covered first without stalling the track.
 function getStudyItems() {
   const seen = new Set();
-  const out = [];
-  const add = (v, day, kind) => {
-    const key = getNative(v);
-    if (!key || seen.has(key) || !getFrontWord(v) || !getBackWord(v)) return;
+  const make = (v, day, kind, extra) => {
+    const key = studyKey(v);
+    if (!key || seen.has(key) || !getFrontWord(v) || !getBackWord(v)) return null;
     seen.add(key);
-    out.push({ ...v, key, day, kind });
+    return { ...v, key, day, kind, ...(extra || {}) };
   };
+  const pack = [], track = [];
+  COURSE.forEach(d => (Array.isArray(d.paris) ? d.paris : []).forEach(v => {
+    const it = make(v, d.day, 'phrase', { paris: true });
+    if (it) pack.push(it);
+  }));
   COURSE.forEach(d => {
     const vs = Array.isArray(d.vocab) ? d.vocab : [];
     const ps = Array.isArray(d.phrases) ? d.phrases : [];
     for (let i = 0; i < Math.max(vs.length, ps.length); i++) {
-      if (vs[i]) add(vs[i], d.day, 'vocab');
-      if (ps[i]) add(ps[i], d.day, 'phrase');
+      const a = vs[i] && make(vs[i], d.day, 'vocab');
+      if (a) track.push(a);
+      const b = ps[i] && make(ps[i], d.day, 'phrase');
+      if (b) track.push(b);
     }
   });
-  state.savedVocab.forEach(v => add(v, 'saved', 'saved'));
+  const out = [];
+  let p = 0, t = 0;
+  while (p < pack.length || t < track.length) {
+    for (let k = 0; k < 2 && p < pack.length; k++) out.push(pack[p++]);
+    if (t < track.length) out.push(track[t++]);
+  }
+  state.savedVocab.forEach(v => { const it = make(v, 'saved', 'saved'); if (it) out.push(it); });
   return out;
 }
 let _studyCache = { course: null, saved: -1, items: [], map: new Map() };
@@ -3083,6 +3128,7 @@ function buildTodaySession(mode) {
   const used = new Set();
   CLSRS.dueCards(srs, now, allowed).forEach(c => {
     if (used.has(c.key) || reviews.length >= (short ? 6 : 20)) return;
+    if (c.dir === 'prod' && isHeardOnly(studyItem(c.key))) return;
     used.add(c.key);
     reviews.push(c);
   });
@@ -3091,10 +3137,10 @@ function buildTodaySession(mode) {
   const steps = reviews.map(c => ({ t: c.dir === 'prod' ? 'recall' : 'recog', key: c.key, review: true }));
   fresh.forEach(i => steps.push({ t: 'intro', key: i.key }));
   shuffled(fresh).forEach(i => {
-    const others = shuffled(items.filter(o => o.key !== i.key && o.kind === i.kind)).map(getBackWord);
-    steps.push({ t: 'listen', key: i.key, opts: shuffled(CLSRS.uniqueOptions(getBackWord(i), others, 4)) });
+    const others = shuffled(items.filter(o => o.key !== i.key && o.kind === i.kind)).map(cleanBack);
+    steps.push({ t: 'listen', key: i.key, opts: shuffled(CLSRS.uniqueOptions(cleanBack(i), others, 4)) });
   });
-  shuffled(fresh).forEach(i => steps.push({ t: 'recall', key: i.key }));
+  shuffled(fresh.filter(i => !isHeardOnly(i))).forEach(i => steps.push({ t: 'recall', key: i.key }));
   if (!short && CONVERSATIONS.length) steps.push({ t: 'scene', idx: (srs.sessions || 0) % CONVERSATIONS.length });
   steps.push({ t: 'done' });
   return {
@@ -3107,7 +3153,12 @@ function buildTodaySession(mode) {
 function loadTodaySession() {
   try {
     const s = JSON.parse(localStorage.getItem(getTodayKey()) || 'null');
-    if (s && s.date === CLSRS.dayKey(Date.now()) && Array.isArray(s.steps)) return s;
+    if (s && s.date === CLSRS.dayKey(Date.now()) && Array.isArray(s.steps)) {
+      // Sessions saved before keys were folded still resume.
+      s.steps.forEach(st => { if (st.key) st.key = CLSRS.itemKey(st.key); });
+      if (Array.isArray(s.newKeys)) s.newKeys = s.newKeys.map(CLSRS.itemKey);
+      return s;
+    }
   } catch (e) {}
   return null;
 }
@@ -3161,7 +3212,7 @@ function renderTodayView(fromTap) {
     const speakBtn = `<div class="today-audio"><button class="speak-btn today-speak" onclick="todaySpeak()" aria-label="Play">🔊</button></div>`;
     const c = s.cur;
     if (step.t === 'intro') {
-      CLSRS.introduce(srs, item.key, Date.now());
+      CLSRS.introduce(srs, item.key, Date.now(), isHeardOnly(item));
       saveSrs();
       body = `
         <div class="today-pill">New</div>
@@ -3178,7 +3229,7 @@ function renderTodayView(fromTap) {
           ? `<div class="today-actions"><button class="today-btn bad" onclick="todayRecog(false)">Missed</button><button class="today-btn good" onclick="todayRecog(true)">Got it</button></div>`
           : `<div class="today-actions one"><button class="today-btn primary" onclick="todayReveal()">Show</button></div>`}`;
     } else if (step.t === 'listen') {
-      const correct = getBackWord(item);
+      const correct = cleanBack(item), correctOld = getBackWord(item);
       body = `
         <div class="today-pill">Listen</div>
         <div class="today-audio"><button class="speak-btn today-speak today-speak-lg" onclick="todaySpeak()" aria-label="Play">🔊</button></div>
@@ -3186,7 +3237,7 @@ function renderTodayView(fromTap) {
         <div class="today-options">
           ${step.opts.map((o, j) => {
             let cls = 'today-btn today-option';
-            if (c.answered && o === correct) cls += ' correct';
+            if (c.answered && (o === correct || o === correctOld)) cls += ' correct';
             else if (c.answered && j === c.choice) cls += ' wrong';
             return `<button class="${cls}" onclick="todayPick(${j})" ${c.answered ? 'disabled' : ''}>${escapeHtml(o)}</button>`;
           }).join('')}
@@ -3196,7 +3247,7 @@ function renderTodayView(fromTap) {
     } else if (step.t === 'recall') {
       body = `
         <div class="today-pill">${step.review ? 'Review · ' : ''}In French</div>
-        <div class="today-card"><div class="today-prompt">${en}</div></div>
+        <div class="today-card"><div class="today-prompt">${escapeHtml(cleanBack(item))}</div></div>
         <input id="today-input" class="today-input" type="text" lang="fr" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
           value="${escapeHtml(c.typed || '')}" ${c.answered ? 'readonly' : ''}
           oninput="todaySession.cur.typed=this.value"
@@ -3290,7 +3341,7 @@ function todayPick(j) {
   const s = todaySession, step = todayStep();
   if (s.cur.answered) return;
   const item = studyItem(step.key);
-  const ok = step.opts[j] === getBackWord(item);
+  const ok = step.opts[j] === cleanBack(item) || step.opts[j] === getBackWord(item);
   s.cur.answered = true;
   s.cur.choice = j;
   CLSRS.grade(srs, step.key, 'rec', ok, Date.now());

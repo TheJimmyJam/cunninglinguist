@@ -57,9 +57,10 @@
     setCard(store, key, dir, c);
     return c;
   }
-  function introduce(store, key, now) {
+  // recOnly: a line you'll hear but not say gets no production card.
+  function introduce(store, key, now, recOnly) {
     if (!getCard(store, key, 'rec')) setCard(store, key, 'rec', newCard(now));
-    if (!getCard(store, key, 'prod')) setCard(store, key, 'prod', newCard(now));
+    if (!recOnly && !getCard(store, key, 'prod')) setCard(store, key, 'prod', newCard(now));
   }
   function isNew(store, key) { return !store.cards[key]; }
 
@@ -86,6 +87,37 @@
       n++;
     });
     store.migrated = true;
+    return n;
+  }
+
+  // ── Card keys ────────────────────────────────────────────────
+  // One card per phrase however it is written: "Bon appétit !", "bon appétit"
+  // and "Bon appétit" share a key. Case, curly/straight apostrophes, spacing
+  // and sentence punctuation don't count; accents, hyphens and words do.
+  function itemKey(s) {
+    return String(s || '').replace(/[’‘ʼ`´]/g, "'").normalize('NFC').toLowerCase()
+      .replace(/[  ]/g, ' ')
+      .replace(/[.,!?¿¡;:…«»"“”]/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+  }
+  function cardWeight(c) { return c ? (c.reps || 0) * 1000 + (c.ivl || 0) : -1; }
+  // Old stores keyed cards by the exact text. Re-key once; when two old cards
+  // meet under one key, keep the further-along card for each direction.
+  function migrateKeys(store, keyFn) {
+    keyFn = keyFn || itemKey;
+    if (store.keysV === 2) return 0;
+    var cards = {}, n = 0;
+    Object.keys(store.cards || {}).forEach(function (old) {
+      var nk = keyFn(old);
+      if (!nk) return;
+      if (nk !== old) n++;
+      var src = store.cards[old] || {}, dst = cards[nk] = cards[nk] || {};
+      ['rec', 'prod'].forEach(function (dir) {
+        if (src[dir] && cardWeight(src[dir]) > cardWeight(dst[dir])) dst[dir] = src[dir];
+      });
+    });
+    store.cards = cards;
+    store.keysV = 2;
     return n;
   }
 
@@ -159,6 +191,18 @@
     return out;
   }
   // Display text with the notes kept but no alternatives: what to show as "the answer".
+  // "…, s'il vous plaît." is optional in a typed answer: add the version without it.
+  var SVP_TAIL = /[\s,]*s'il vous pla[iî]t\s*([.!?…]*)\s*$/i;
+  function withOptionalPlease(variants) {
+    var out = variants.slice();
+    variants.forEach(function (v) {
+      var u = unifyApostrophes(v);
+      if (!SVP_TAIL.test(u)) return;
+      var w = u.replace(SVP_TAIL, '$1').trim();
+      if (answerKey(w, 'fr', false) && out.indexOf(w) === -1) out.push(w);
+    });
+    return out;
+  }
   function displayAnswer(display) { return String(display || '').split(/\s+\/\s+|\s*\|\s*/)[0].trim(); }
 
   // → { ok, nudge (right but accents off), expected }
@@ -166,6 +210,7 @@
     opts = opts || {};
     var lang = opts.lang || 'fr';
     var variants = answerVariants(display, opts.alts);
+    if (lang === 'fr') variants = withOptionalPlease(variants);
     var res = { ok: false, nudge: false, expected: displayAnswer(display) };
     if (!String(typed || '').trim() || !variants.length) return res;
     var exact = answerKey(typed, lang, true);
@@ -231,7 +276,7 @@
     dayKey: dayKey, dayDiff: dayDiff, startOfDay: startOfDay, addDays: addDays, daysUntil: daysUntil,
     newCard: newCard, review: review, emptyStore: emptyStore, getCard: getCard, setCard: setCard,
     grade: grade, introduce: introduce, isNew: isNew, dueCards: dueCards, countDueBefore: countDueBefore,
-    migrateLearned: migrateLearned, isMastered: isMastered,
+    migrateLearned: migrateLearned, isMastered: isMastered, itemKey: itemKey, migrateKeys: migrateKeys,
     answerKey: answerKey, answerVariants: answerVariants, displayAnswer: displayAnswer,
     gradeAnswer: gradeAnswer, uniqueOptions: uniqueOptions,
     finishSessionDay: finishSessionDay, liveStreak: liveStreak
