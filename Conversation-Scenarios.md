@@ -101,8 +101,8 @@ These are the conversations you'll actually have. Practice each one out loud, ta
 **You:** Bonjour, je voudrais un passe Navigo Easy et deux tickets, s'il vous plaît.
 **Them:** Très bien. Ça fait sept euros dix.
 **You:** Quelle ligne pour aller au Louvre ?
-**Them:** Ligne 1, direction La Défense, descendez à Palais Royal.
-**You:** Merci. C'est combien d'arrêts ?
+**Them:** Ligne 1, direction La Défense, descendez à Palais-Royal.
+**You:** Merci. Il y a combien d'arrêts ?
 **Them:** Trois ou quatre arrêts.
 **You:** Parfait. Merci beaucoup, bonne journée.
 
