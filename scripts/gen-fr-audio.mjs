@@ -171,7 +171,7 @@ async function main() {
 
   let jobs = [];
   for (const it of items) for (const slow of [false, true]) {
-    if (!existsSync(fileFor(it.hash, slow))) jobs.push({ ...it, slow, chars: it.norm.length });
+    if (!(existsSync(fileFor(it.hash, slow)) && (manifest[it.hash] || '').includes(slow ? 's' : 'n'))) jobs.push({ ...it, slow, chars: it.norm.length });
   }
   if (LIMIT) jobs = jobs.slice(0, LIMIT);
   const chars = jobs.reduce((s, j) => s + j.chars, 0);
@@ -201,7 +201,8 @@ async function main() {
       try {
         const buf = await prov.synth(key, j.norm, j.slow, voice);
         if (buf.length < 500) throw new Error('audio too small: ' + buf.length + ' bytes');
-        writeFileSync(fileFor(j.hash, j.slow), buf);
+        writeFileSync(fileFor(j.hash, j.slow) + '.tmp', buf);
+        renameSync(fileFor(j.hash, j.slow) + '.tmp', fileFor(j.hash, j.slow));
         spent += prov.cost(buf, j.chars, j.slow);
         const f = new Set((manifest[j.hash] || '').split(''));
         f.add(j.slow ? 's' : 'n');

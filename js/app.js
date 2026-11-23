@@ -3579,7 +3579,9 @@ function buildListenSession(mode) {
   const heard = items.filter(i => i.heard);
   const want = mode === 'numbers' ? 0 : 3;
   shuffled(heard).slice(0, want).forEach(i => qs.push(listenItemQuestion(i, heard.length >= 4 ? heard : items.filter(o => o.kind === i.kind))));
-  while (qs.length < 10) qs.push(listenQuestion(take('price', 1)[0]));
+  const used = new Set(picks.map(g => g.fr));
+  const extra = shuffled(gen.filter(g => g.kind === 'price' && !used.has(g.fr)));
+  while (qs.length < 10 && extra.length) qs.push(listenQuestion(extra.pop()));
   return { mode, qs: shuffled(qs), i: 0, cur: {}, results: [] };
 }
 function startListen(mode) {

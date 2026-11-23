@@ -95,7 +95,7 @@
   function timeWords(h, m) {
     if (h === 12 && m === 0) return 'midi';
     if (h === 0 && m === 0) return 'minuit';
-    var w = frNumber(h, true) + (h === 1 ? ' heure' : ' heures');
+    var w = frNumber(h, true) + (h <= 1 ? ' heure' : ' heures');
     return m ? w + ' ' + frNumber(m, true) : w;
   }
   var MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
