@@ -1510,6 +1510,8 @@ function saveState() {
 // ── Spaced repetition store ─────────────────────────────────
 // Own key per pair (cll_srs_<pair>), separate from the synced progress object.
 function getSrsKey() { return 'cll_srs_' + currentLang; }
+// Reset this pair: progress, review cards and the Today session.
+function resetPairProgress() { [getStorageKey(), getSrsKey(), getTodayKey()].forEach(function (k) { localStorage.removeItem(k); }); location.reload(); }
 function loadSrs() {
   let st = null;
   try { st = JSON.parse(localStorage.getItem(getSrsKey()) || 'null'); } catch (e) {}
@@ -2481,7 +2483,7 @@ function renderAllView() {
   content.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px;">
       <h2 style="margin-bottom:0;">${t('all_title')}</h2>
-      <button class="reset-all-btn" onclick="if(confirm(t('all_reset_confirm', _label))){localStorage.removeItem(getStorageKey());location.reload();}">${t('all_reset_btn')}</button>
+      <button class="reset-all-btn" onclick="if(confirm(t('all_reset_confirm', LANGS[currentTarget()].label))){resetPairProgress();}">${t('all_reset_btn')}</button>
     </div>
     <p class="subtitle" style="margin-bottom:20px;">${t('all_subtitle')}</p>
     <div class="day-grid">
@@ -2658,7 +2660,7 @@ function renderProgressView() {
       <div class="dash-section-title">${t('prog_reset_section')}</div>
       <div class="dash-row">
         <span class="dash-row-label" style="color:var(--muted);font-size:13px;">${t('prog_reset_desc', langLabel)}</span>
-        <button class="reset-btn" onclick="if(confirm(t('prog_reset_confirm', langLabel))){localStorage.removeItem(getStorageKey());location.reload();}">${t('prog_reset_btn')}</button>
+        <button class="reset-btn" onclick="if(confirm(t('prog_reset_confirm', LANGS[currentTarget()].label))){resetPairProgress();}">${t('prog_reset_btn')}</button>
       </div>
     </div>
   `;

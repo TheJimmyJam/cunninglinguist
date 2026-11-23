@@ -140,7 +140,14 @@
   function answerVariants(display, alts) {
     var out = [];
     [display].concat(alts || []).forEach(function (a) {
-      String(a || '').split(/\s+\/\s+|\s*\|\s*|\s*;\s*/).forEach(function (part) {
+      var parts = String(a || '').split(/\s+\/\s+|\s*\|\s*|\s*;\s*/);
+      // "une chambre simple / double": a shorter part replaces the end of the first one.
+      var first = (parts[0] || '').trim().split(/\s+/);
+      parts = parts.map(function (part, i) {
+        var w = part.trim().split(/\s+/);
+        return (i > 0 && w.length < first.length) ? first.slice(0, first.length - w.length).concat(w).join(' ') : part;
+      });
+      parts.forEach(function (part) {
         expandParens(part).forEach(function (p) {
           expandSlashes(p).forEach(function (v) {
             v = v.replace(/^[.…\s]+/, '').replace(/\s+/g, ' ').trim();
