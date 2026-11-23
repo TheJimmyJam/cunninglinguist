@@ -6,7 +6,7 @@
 // The scene (who the partner is, the goal, this run's changed fact, the words
 // to stay within) comes from js/scenes-fr.js on the server; the client only
 // picks a scene id. Session + daily cap + cost log: netlify/lib/ai-guard.js.
-import { guard, takeQuota, callClaude, logCost, json, clip, AiError } from '../lib/ai-guard.js';
+import { guard, takeQuota, callClaude, logCost, costUsd, json, clip, AiError } from '../lib/ai-guard.js';
 import SCENES from '../../js/scenes-fr.js';
 
 export const MODEL = 'claude-sonnet-5-5';
@@ -123,12 +123,14 @@ export default async (req) => {
     }, env);
     logCost('converse.' + mode, r.model, r.usage, g.user.id, { scene: brief.id, left: q.left });
     const d = r.data || {};
+    const usd = Number(costUsd(r.model, r.usage).toFixed(6));
     if (mode === 'debrief') {
       return json(200, {
         summary_en: clip(d.summary_en, 400),
         goal_done: !!d.goal_done,
         corrections: (Array.isArray(d.corrections) ? d.corrections : []).map(cleanCorrection).filter(Boolean).slice(0, 5),
-        left: q.left
+        left: q.left,
+        usd
       });
     }
     const fr = clip(d.npc_line_fr, 300);
@@ -138,7 +140,8 @@ export default async (req) => {
       npc_line_en: clip(d.npc_line_en, 300),
       goal_progress: ['in_progress', 'done', 'off_track'].includes(d.goal_progress) ? d.goal_progress : 'in_progress',
       correction: cleanCorrection(d.correction),
-      left: q.left
+      left: q.left,
+      usd
     });
   } catch (e) {
     if (e && e.usage) logCost('converse.' + mode, e.model || MODEL, e.usage, g.user.id, { scene: brief.id, error: e.code });

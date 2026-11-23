@@ -1,26 +1,25 @@
 // Shared guard for the AI endpoints (translate, converse): who is calling
-// (Supabase session, checked against Supabase auth), how much they used today
-// (per-user daily cap), the Anthropic call (structured output) and a cost line
-// in the function log. No npm dependencies: the site deploys with
-// `netlify deploy --dir=.` and no install step, so everything is fetch().
+// (Supabase session, checked against Supabase auth with the user's own JWT and
+// the public anon key), how much they used today (per-user daily cap in
+// Netlify Blobs), the Anthropic call (structured output) and a cost line in
+// the function log.
 //
 // Env (Netlify site settings):
-//   ANTHROPIC_API_KEY          required, server-side only
-//   SUPABASE_SERVICE_ROLE_KEY  required (the CCC project's service role key):
-//                              reads/writes the per-user counter
+//   ANTHROPIC_API_KEY            required, server-side only
 //   SUPABASE_URL, SUPABASE_ANON_KEY   optional; default to the public CCC
-//                              project values the page already uses
-//   CLL_CONVERSE_DAILY_CAP     optional, default 60
-//   CLL_TRANSLATE_DAILY_CAP    optional, default 100
+//                                project values js/supabase-sync.js uses
+// Netlify Blobs needs no env: the platform provides its context to functions.
 //
-// The counter lives in the user's auth app_metadata (key cll_ai: { day,
-// converse, translate }), which only the service role can write. No table, no
-// schema change. Read-modify-write: two calls in the same instant can both
-// pass at the cap edge (an overrun of a call or two at most).
+// Counter: store 'cll-ai-usage', key '<userId>:<YYYY-MM-DD>' (UTC day),
+// value { converse, translate }. Read-modify-write: two calls in the same
+// instant can both pass at the cap edge (an overrun of a call or two at most).
+// If Blobs is unavailable the call is allowed and logged, capped by an
+// in-memory counter per function instance. Auth never fails open.
 
+export const CAPS = { converse: 60, translate: 100 };
+const BLOB_STORE = 'cll-ai-usage';
 const DEFAULT_SUPABASE_URL = 'https://azkyohtmhlvnkziuvgvk.supabase.co';
 const DEFAULT_SUPABASE_ANON = 'sb_publishable_C4F7zGYkDVm9hP5hxMRvLg_ral9g3y1';
-export const DEFAULT_CAPS = { converse: 60, translate: 100 };
 export const ALLOWED_ORIGINS = new Set([
   'https://apps.cannoncodeconnect.com',
   'https://cunninglinguist.netlify.app'
@@ -48,19 +47,17 @@ export function dayKey(now) { return new Date(now || Date.now()).toISOString().s
 function sbConf(env) {
   return {
     url: (env.SUPABASE_URL || DEFAULT_SUPABASE_URL).replace(/\/+$/, ''),
-    anon: env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON,
-    service: env.SUPABASE_SERVICE_ROLE_KEY || ''
+    anon: env.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON
   };
 }
 
-// Origin, method, key and session. Returns { user } or { res } (an error Response).
+// Origin, method and session. Returns { user } or { res } (an error Response).
 export async function guard(req, env) {
   if (!ALLOWED_ORIGINS.has(req.headers.get('origin') || '')) return { res: json(403, { error: 'Forbidden' }) };
   if (req.method !== 'POST') return { res: json(405, { error: 'Method not allowed' }) };
   const m = /^Bearer\s+([A-Za-z0-9._~+/=-]{20,4096})$/.exec(req.headers.get('authorization') || '');
   if (!m) return { res: json(401, { error: 'Sign in required', code: 'auth' }) };
   const sb = sbConf(env);
-  if (!env.ANTHROPIC_API_KEY || !sb.service) return { res: json(503, { error: 'AI unavailable', code: 'config' }) };
   let r;
   try {
     r = await fetch(sb.url + '/auth/v1/user', { headers: { apikey: sb.anon, authorization: 'Bearer ' + m[1] } });
@@ -70,33 +67,50 @@ export async function guard(req, env) {
   if (r.status === 401 || r.status === 403) return { res: json(401, { error: 'Sign in required', code: 'auth' }) };
   if (!r.ok) return { res: json(503, { error: 'AI unavailable', code: 'auth_upstream' }) };
   const user = await r.json().catch(() => null);
-  if (!user || !user.id) return { res: json(401, { error: 'Sign in required', code: 'auth' }) };
+  if (!user || typeof user.id !== 'string' || !user.id) return { res: json(401, { error: 'Sign in required', code: 'auth' }) };
+  if (!env.ANTHROPIC_API_KEY) return { res: json(503, { error: 'AI unavailable', code: 'config' }) };
   return { user };
 }
 
+// Usage store. Tests swap it with setUsageStore(); null = use Netlify Blobs.
+let storeOverride = null;
+export function setUsageStore(s) { storeOverride = s; }
+async function usageStore() {
+  if (storeOverride) return storeOverride;
+  const { getStore } = await import('@netlify/blobs');
+  return getStore({ name: BLOB_STORE, consistency: 'strong' });
+}
+
+// Fallback counter for when Blobs can't be read or written (per instance).
+const memUsage = new Map();
+export function resetMemUsage() { memUsage.clear(); }
+
 // Count one call against today's cap; refuse at the cap. Returns { left } or { res }.
 export async function takeQuota(user, kind, env, now) {
-  const capEnv = kind === 'converse' ? env.CLL_CONVERSE_DAILY_CAP : env.CLL_TRANSLATE_DAILY_CAP;
-  const cap = Number.isFinite(Number(capEnv)) && Number(capEnv) > 0 ? Math.floor(Number(capEnv)) : DEFAULT_CAPS[kind];
-  const today = dayKey(now);
-  const prev = (user.app_metadata && user.app_metadata.cll_ai) || {};
-  const counts = prev.day === today ? { ...prev } : { day: today };
+  const cap = CAPS[kind];
+  const key = user.id + ':' + dayKey(now);
+  let counts = null;
+  let store = null;
+  let failed = '';
+  try {
+    store = await usageStore();
+    counts = (await store.get(key, { type: 'json' })) || {};
+  } catch (e) {
+    failed = 'read';
+  }
+  if (failed) counts = memUsage.get(key) || {};
   const used = Number(counts[kind]) || 0;
   if (used >= cap) return { res: json(429, { error: 'Daily limit reached', code: 'cap', cap }) };
-  counts[kind] = used + 1;
-  const sb = sbConf(env);
-  let r;
-  try {
-    r = await fetch(sb.url + '/auth/v1/admin/users/' + encodeURIComponent(user.id), {
-      method: 'PUT',
-      headers: { apikey: sb.service, authorization: 'Bearer ' + sb.service, 'content-type': 'application/json' },
-      body: JSON.stringify({ app_metadata: { cll_ai: counts } })
-    });
-  } catch (e) {
-    r = null;
+  const next = { converse: Number(counts.converse) || 0, translate: Number(counts.translate) || 0 };
+  next[kind] = used + 1;
+  if (!failed) {
+    try { await store.setJSON(key, next); } catch (e) { failed = 'write'; }
   }
-  if (!r || !r.ok) return { res: json(503, { error: 'AI unavailable', code: 'quota_store' }) };
-  return { left: cap - counts[kind], used: counts[kind], cap };
+  if (failed) {
+    memUsage.set(key, next);
+    console.log('[cll-ai] ' + JSON.stringify({ quota_store: 'unavailable', op: failed, kind, user: String(user.id).slice(0, 8) }));
+  }
+  return { left: cap - next[kind], used: next[kind], cap };
 }
 
 export class AiError extends Error {
