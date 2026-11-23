@@ -1,6 +1,40 @@
 # Paris v2
 
+**Status (2026-11-23):** stages 1-5 merged and live (PRs #5-#9, deploys confirmed; /api/converse and /api/translate return 401 without a session). Jimmy's go given in chat 2026-11-23 for both paid runs ("Go on both"): French audio cap $2, role-play smoke cap $1.
+**Next:** role-play smoke test once a session token exists (step 2). Audio is shipped (step 1 done).
+
 Scope: `SCOPE-paris-v2.md`. Branch per stage; the lead pushes, opens and merges the PR.
+
+## HANDOFF #1 (2026-11-23): pick up here
+Clocks: none running · last stop: UES ues-build (log) at 11:39 AM, a session
+Atlas: Cunning Linguist up, last deploy today 14:09 · 60 apps, 0 down
+
+1. **Audio: DONE 2026-11-23.** 849 lines × normal+slow = 1698 MP3s (72 MB) in `audio/fr/`, `--check` exit 0, total spend ≈ $1.16 of the $2 cap (two runs: ~$0.91 interrupted by a session restart, then $0.25). Shipped via PR paris-v2-audio.
+2. **Role-play smoke test (paid, approved, cap $1):** `CLL_SMOKE_JWT=<access token> node scripts/smoke-converse.mjs --max-usd 1`. Blocked on a token: the CCC_FINANCE_TEST_A account is not a user in the CunningLinguist Supabase project (azkyohtmhlvnkziuvgvk, invalid_credentials), and the auto-mode classifier refused trying the B/C accounts ("[Unauthorized Access]"). Needs Jimmy: either a test login for that project put in `.credentials`, or he signs in on the live app and the session runs the smoke test from that page. Est. ~$0.07.
+3. **iPhone look by Jimmy** (Yours to check below).
+
+### Open with Jimmy
+- Token for the smoke test (step 2).
+
+### Leftovers (low)
+- Whole repo is published as static files (`publish = "."`): scripts/, tests/, BUILD-LOG are public; no secrets found. Fix later with a publish subfolder or deploy-time exclusion.
+- es-de and pt-fr pairs crash on load (pre-existing, out of scope).
+- fr-en Progress view overflows at 390px (pre-existing).
+- SRS / Today state is localStorage only (no sync across devices) — scope "Later".
+- 413 size check relies on Content-Length.
+
+### Yours to check
+Open https://apps.cannoncodeconnect.com/cunninglinguist/ on the iPhone, pick English → French, sign in with your CCC account (invite-only).
+1. Today · 10 min shows first; tap Start: reviews, new Paris phrases, a listen round, typed answers, a scene, then a summary with "days to Paris".
+2. Tap any speaker: French plays right away (recorded voice once step 1 is live; the phone's voice before that).
+3. Bottom bar → More → Listen: prices/times/platforms; Repeat and Slower work.
+4. More → Talk → Café: answer in French (keyboard mic is fine); Hint helps; replay changes one fact.
+5. Translator: try "what did they say" (French → English).
+Tell the next session what felt off.
+
+### Mode
+Stay in auto mode; don't retry the refused test-account sign-in.
+
 
 ## Stage 1 — Fast French + audio path fix (builder handoff, 2026-11-23)
 
