@@ -89,6 +89,37 @@
     return n;
   }
 
+  // ── Card keys ────────────────────────────────────────────────
+  // One card per phrase however it is written: "Bon appétit !", "bon appétit"
+  // and "Bon appétit" share a key. Case, curly/straight apostrophes, spacing
+  // and sentence punctuation don't count; accents, hyphens and words do.
+  function itemKey(s) {
+    return String(s || '').replace(/[’‘ʼ`´]/g, "'").normalize('NFC').toLowerCase()
+      .replace(/[  ]/g, ' ')
+      .replace(/[.,!?¿¡;:…«»"“”]/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+  }
+  function cardWeight(c) { return c ? (c.reps || 0) * 1000 + (c.ivl || 0) : -1; }
+  // Old stores keyed cards by the exact text. Re-key once; when two old cards
+  // meet under one key, keep the further-along card for each direction.
+  function migrateKeys(store, keyFn) {
+    keyFn = keyFn || itemKey;
+    if (store.keysV === 2) return 0;
+    var cards = {}, n = 0;
+    Object.keys(store.cards || {}).forEach(function (old) {
+      var nk = keyFn(old);
+      if (!nk) return;
+      if (nk !== old) n++;
+      var src = store.cards[old] || {}, dst = cards[nk] = cards[nk] || {};
+      ['rec', 'prod'].forEach(function (dir) {
+        if (src[dir] && cardWeight(src[dir]) > cardWeight(dst[dir])) dst[dir] = src[dir];
+      });
+    });
+    store.cards = cards;
+    store.keysV = 2;
+    return n;
+  }
+
   // Mastered = recognised on two separate days in a row (interval reached 3+).
   function isMastered(store, key) {
     var c = getCard(store, key, 'rec');
@@ -231,7 +262,7 @@
     dayKey: dayKey, dayDiff: dayDiff, startOfDay: startOfDay, addDays: addDays, daysUntil: daysUntil,
     newCard: newCard, review: review, emptyStore: emptyStore, getCard: getCard, setCard: setCard,
     grade: grade, introduce: introduce, isNew: isNew, dueCards: dueCards, countDueBefore: countDueBefore,
-    migrateLearned: migrateLearned, isMastered: isMastered,
+    migrateLearned: migrateLearned, isMastered: isMastered, itemKey: itemKey, migrateKeys: migrateKeys,
     answerKey: answerKey, answerVariants: answerVariants, displayAnswer: displayAnswer,
     gradeAnswer: gradeAnswer, uniqueOptions: uniqueOptions,
     finishSessionDay: finishSessionDay, liveStreak: liveStreak

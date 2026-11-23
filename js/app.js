@@ -263,7 +263,7 @@ nav_lessons:'Lessons', nav_more:'More',
     flash_deck:'Deck', flash_days_seen:'Days I\'ve seen',
     flash_all_days:'All 30 days + saved', flash_need_work:'Need more work',
     flash_saved_words:'My saved words', flash_shuffle:'⇄ Shuffle', flash_mode:'Mode',
-    flash_ipa_on:'IPA on front', flash_challenge:'Challenge',
+    flash_ipa_on:'Sounds-like on front', flash_challenge:'Challenge',
     flash_need_btn:'Need work', flash_skip:'Skip', flash_got_it:'Got it ✓',
     flash_tap_flip:'Tap to flip', flash_say_it:'Say it — then flip',
     flash_empty_saved:'No saved words yet. Use the Translator tab and tap "+ Save to flashcards" to build your custom deck.',
@@ -1400,6 +1400,9 @@ function getNative(v) {
   const ck = currentPair().courseKey;
   return v[ck] || v.fr || v.native || '';
 }
+// Review-card key: the target text with case and sentence punctuation folded,
+// so "Au revoir" and "au revoir" are one card (CLSRS.itemKey).
+function studyKey(v) { return CLSRS.itemKey(getNative(v)); }
 
 // Front of card = target language word (what you're learning).
 // If target IS English (e.g. fr-en), the English word goes on front.
@@ -1521,6 +1524,11 @@ function loadSrs() {
     CLSRS.migrateLearned(st, state.learnedCards, Date.now());
     try { localStorage.setItem(getSrsKey(), JSON.stringify(st)); } catch (e) {}
   }
+  if (st.keysV !== 2) {
+    // Exact-text keys → folded keys (one card per phrase, the further-along card wins).
+    CLSRS.migrateKeys(st);
+    try { localStorage.setItem(getSrsKey(), JSON.stringify(st)); } catch (e) {}
+  }
   return st;
 }
 function saveSrs() {
@@ -1614,7 +1622,7 @@ function getQuizStars(correct, total) {
 function isDayMastered(dayNum) {
   const day = COURSE.find(d => d.day === dayNum);
   if (!day || !state.completedDays.includes(dayNum)) return false;
-  const masteredCount = day.vocab.filter(v => isKeyMastered(getNative(v))).length;
+  const masteredCount = day.vocab.filter(v => isKeyMastered(studyKey(v))).length;
   return day.vocab.length > 0 && masteredCount / day.vocab.length >= 0.8;
 }
 
@@ -1834,6 +1842,19 @@ function renderLessonView(dayNum) {
       `).join('')}
     </div>
 
+    ${Array.isArray(day.paris) && day.paris.length ? `
+    <h3>Paris survival${day.parisTitle ? `: ${day.parisTitle}` : ''}</h3>
+    <div class="phrase-list paris-list">
+      ${day.paris.map(p => `
+        <div class="phrase">
+          <div class="fr">${getFrontWord(p)}</div>
+          <div class="ipa">${p.ipa || p.phonetic || ''}</div>
+          <div class="en">${getBackWord(p)}</div>
+          <button class="speak-btn speak-btn-sm" onclick="speakWord('${getSpeakWord(p).replace(/'/g,"\\'")}','${currentTarget()}')">🔊</button>
+        </div>
+      `).join('')}
+    </div>` : ''}
+
     <h3>${t('lesson_grammar_tip')}</h3>
     <div class="grammar-box">
       <p>${day.grammar}</p>
@@ -2035,8 +2056,8 @@ function rebuildFlashPool() {
   // Spaced repetition: only cards that are new or due (unless practising anyway)
   const now = Date.now();
   const seen = new Set();
-  pool = pool.filter(v => { const k = getNative(v); if (!k || seen.has(k)) return false; seen.add(k); return true; });
-  const isReady = v => { const c = CLSRS.getCard(srs, getNative(v), 'rec'); return !c || c.due <= now; };
+  pool = pool.filter(v => { const k = studyKey(v); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+  const isReady = v => { const c = CLSRS.getCard(srs, studyKey(v), 'rec'); return !c || c.due <= now; };
   flashState.later = flashState.practiceAll ? 0 : pool.filter(v => !isReady(v)).length;
   if (!flashState.practiceAll) pool = pool.filter(isReady);
   flashState.pool = pool;
@@ -2053,7 +2074,7 @@ function shufflePool() {
 function markCard(type) {
   const card = flashState.pool[flashState.index];
   if (!card) return;
-  const key = getNative(card);
+  const key = studyKey(card);
   const ok = type === 'got';
   CLSRS.grade(srs, key, 'rec', ok, Date.now());
   saveSrs();
@@ -3032,26 +3053,40 @@ function getTodayKey() { return 'cll_today_' + currentLang; }
 let todaySession = null;
 let todayPaused = true; // a saved session opens on the start screen with Resume
 
-// Every vocab word and phrase once, keyed by its target-language text.
-// Within a day, words and phrases alternate so new items include both.
+// Every vocab word and phrase once, keyed by its folded target-language text
+// (studyKey). Within a day, words and phrases alternate so new items include
+// both. Paris-pack items (day.paris, week one of en-fr) come two for every one
+// track item, so the survival pack is covered first without stalling the track.
 function getStudyItems() {
   const seen = new Set();
-  const out = [];
-  const add = (v, day, kind) => {
-    const key = getNative(v);
-    if (!key || seen.has(key) || !getFrontWord(v) || !getBackWord(v)) return;
+  const make = (v, day, kind, extra) => {
+    const key = studyKey(v);
+    if (!key || seen.has(key) || !getFrontWord(v) || !getBackWord(v)) return null;
     seen.add(key);
-    out.push({ ...v, key, day, kind });
+    return { ...v, key, day, kind, ...(extra || {}) };
   };
+  const pack = [], track = [];
+  COURSE.forEach(d => (Array.isArray(d.paris) ? d.paris : []).forEach(v => {
+    const it = make(v, d.day, 'phrase', { paris: true });
+    if (it) pack.push(it);
+  }));
   COURSE.forEach(d => {
     const vs = Array.isArray(d.vocab) ? d.vocab : [];
     const ps = Array.isArray(d.phrases) ? d.phrases : [];
     for (let i = 0; i < Math.max(vs.length, ps.length); i++) {
-      if (vs[i]) add(vs[i], d.day, 'vocab');
-      if (ps[i]) add(ps[i], d.day, 'phrase');
+      const a = vs[i] && make(vs[i], d.day, 'vocab');
+      if (a) track.push(a);
+      const b = ps[i] && make(ps[i], d.day, 'phrase');
+      if (b) track.push(b);
     }
   });
-  state.savedVocab.forEach(v => add(v, 'saved', 'saved'));
+  const out = [];
+  let p = 0, t = 0;
+  while (p < pack.length || t < track.length) {
+    for (let k = 0; k < 2 && p < pack.length; k++) out.push(pack[p++]);
+    if (t < track.length) out.push(track[t++]);
+  }
+  state.savedVocab.forEach(v => { const it = make(v, 'saved', 'saved'); if (it) out.push(it); });
   return out;
 }
 let _studyCache = { course: null, saved: -1, items: [], map: new Map() };
@@ -3107,7 +3142,12 @@ function buildTodaySession(mode) {
 function loadTodaySession() {
   try {
     const s = JSON.parse(localStorage.getItem(getTodayKey()) || 'null');
-    if (s && s.date === CLSRS.dayKey(Date.now()) && Array.isArray(s.steps)) return s;
+    if (s && s.date === CLSRS.dayKey(Date.now()) && Array.isArray(s.steps)) {
+      // Sessions saved before keys were folded still resume.
+      s.steps.forEach(st => { if (st.key) st.key = CLSRS.itemKey(st.key); });
+      if (Array.isArray(s.newKeys)) s.newKeys = s.newKeys.map(CLSRS.itemKey);
+      return s;
+    }
   } catch (e) {}
   return null;
 }

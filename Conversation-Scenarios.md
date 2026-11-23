@@ -98,8 +98,8 @@ These are the conversations you'll actually have. Practice each one out loud, ta
 
 **Scene:** You're at the métro counter on day one of your trip.
 
-**You:** Bonjour, je voudrais un carnet de dix tickets.
-**Them:** Très bien. Ça fait seize euros quatre-vingt-dix.
+**You:** Bonjour, je voudrais un passe Navigo Easy et deux tickets, s'il vous plaît.
+**Them:** Très bien. Ça fait sept euros dix.
 **You:** Quelle ligne pour aller au Louvre ?
 **Them:** Ligne 1, direction La Défense, descendez à Palais Royal.
 **You:** Merci. C'est combien d'arrêts ?
@@ -108,6 +108,10 @@ These are the conversations you'll actually have. Practice each one out loud, ta
 
 **Variations:**
 - Ask about a transit pass: `Vous avez un passe pour la semaine ?`
+- From the airport: `Quel ticket me faut-il pour aller à Paris ?`
+- Top up your card: `Je voudrais recharger mon passe.`
+
+*Paper tickets are gone. A Navigo Easy card costs €2 and each Métro-Train-RER ticket €2.55 (2026 fares, Île-de-France Mobilités); you can also buy tickets on your phone in the Île-de-France Mobilités app.*
 - Confirm transfers: `Il faut changer ?`
 - Ask about the last train: `À quelle heure est le dernier métro ?`
 

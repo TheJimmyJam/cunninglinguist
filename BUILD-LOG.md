@@ -65,3 +65,32 @@ Branch `paris-v2-stage2` (from `origin/main`). Committed locally, NOT pushed.
 
 ### Next step
 Lead: independent check (run `node tests/srs-sim.mjs`; headless 390/1280 Today flow + §22 measurements), then push `paris-v2-stage2` once, PR into main, merge, confirm the deploy shows Today first at https://apps.cannoncodeconnect.com/cunninglinguist/learn.html.
+
+## Stage 3 — Content fixes + Paris-in-December pack (builder handoff, 2026-11-23)
+
+Branch `paris-v2-stage3` (from `origin/main`). Committed locally, NOT pushed.
+
+### What changed
+- **Fixes in js/course-en-fr.js** (found by content, not line numbers): allergy line is now "Je suis allergique aux fruits à coque." (+ "aux arachides", "Il y a des fruits à coque dedans ?"; vocab "les fruits à coque"); doneness: added "bleu", à point = "medium-rare / medium", day 12 tip rewritten (no "or even bien cuit"); "C'est quatre-vingts euros." + liaison note in the day 5 tip; "Donnez-moi la monnaie." → "Vous avez la monnaie sur cinquante euros ?"; "Je suis américain, d'accord ?" → "…, je suis en vacances."; "C'est quoi, le plat du jour ?"; "Pour emporter" → "Une part de quiche" (Parisians say "à emporter", now in the pack); Uber line → "Où est la station de taxis ?"; "Bonjour, je voudrais changer des dollars, s'il vous plaît."; transfer line → "Prenez la ligne 4 en correspondance."; trois "trwah", dix-sept "dee-set", vingt-deux "vant-duh", gluten "gloo-ten" everywhere, no leading "..." sounds-like; Bonne soirée = "have a good evening" (day 28 phrase + hotel scene); "La climatisation ne marche pas" → "Le chauffage ne marche pas." (December); "où est...?" → "où est... ?" (spacing); pharmacy scene "Du paracétamol, ça ira."
+- **Métro, no paper tickets**: carnet vocab → "valider"; carnet phrase → "Un ticket pour l'aéroport, s'il vous plaît." (+ "La sortie, c'est par où ?", "C'est la bonne direction pour Châtelet ?"); day 18 tip: Navigo Easy €2, Métro-Train-RER ticket €2.55 (2026), IDFM app, airport needs its own ticket (no airport price written: sources disagreed). Métro scene (course + Conversation-Scenarios.md) now buys "un passe Navigo Easy et deux tickets" = "sept euros dix". Prices verified 2026-11-23 via iledefrance-mobilites.fr / ratp.fr / bonjour-ratp.fr search results (the pages themselves return 403 to fetches).
+- **Paris pack** = new `parisTitle` + `paris:[…]` on days 1-7 (en-fr only): 67 new items + 11 moved = 78. D1 politeness (toilets, Je vous en prie, Pardon je descends, C'est tout merci…), D2 when you're stuck (Je n'ai pas compris, répéter plus lentement, l'écrire, Comment dit-on ça… + moved perdu/passeport/volé), D3 café & boulangerie (staff lines Sur place ou à emporter ?, Vous avez choisi ?, Et avec ceci ?, Ça sera tout ?, Carte ou espèces ? flagged `heard:true`; tradition, comté, C'est pour offrir), D4 booking & paying (allergy line, table at 20 h, erreur dans l'addition, Ma carte ne passe pas, sans contact), D5 pharmacy & cold (+ moved pharmacie/médecin/chauffage), D6 December (dates, Joyeux Noël, Bonne année, C'est ouvert le 25 ?, fermé le jour de Noël, vin chaud, marché de Noël, 19 h closing), D7 métro & strikes (Quel ticket me faut-il…, Navigo Easy, recharger, grève, retard, trafic perturbé, 17 h 45 + moved métro lines). Accepted alternatives via `alt:[…]` (digits vs words, spoken variants).
+- **Lesson view** renders "Paris survival: <title>" after Key Phrases when a day has `paris` (other pairs unaffected). Flashcard toggle label "IPA on front" → "Sounds-like on front" (English UI string).
+- **Card keys**: `CLSRS.itemKey` folds case, curly/straight apostrophes, nbsp and sentence punctuation (accents/hyphens kept); `studyKey(v)` used by Today, flashcards, mastered. `CLSRS.migrateKeys` re-keys old stores once (`keysV: 2`, further-along card wins per direction); a saved Today session's keys are folded on resume. The 9 case/punctuation twins (Au revoir/au revoir, Bon appétit !/bon appétit, Gardez la monnaie./gardez la monnaie …) are one card each now. Applies to every pair's store (code, not content).
+- **Today order**: `getStudyItems` puts pack items 2 for every 1 track item until the pack is done (78 pack items ≈ first 117 new items ≈ 20 sessions at 6/day, before 2026-12-20), then the track in day order.
+
+### Decisions
+- Moved lines keep their exact French, so review progress carries over. Days keep their numbers and titles; `completedDays` is untouched. A day marked complete keeps its mark even though its list changed (day 17/18/25 lost 2-4 phrases, days 1-7 gained a section). Today drives new-item order, so nothing needs re-completing.
+- Allergy line appears in both D4 pack and day 12 (same key → one card).
+- Staff lines are also asked in typed recall (stage 4 listening drill will use `heard:true`).
+
+### Measured
+- `node --check` on js/srs.js, js/app.js, js/course-en-fr.js: ok. `node tests/srs-sim.mjs`: 15 passed. `node tests/content-fr.mjs` (new): 14 passed (fields + sounds-like on every item, space before ?/!, unique folded keys from the real getStudyItems, twin folding, store migration, allergy, doneness, no carnet in course or Conversation-Scenarios.md, listed fixes, pack ≥60 with listed phrases/staff lines, moved lines in week one only, pack first in Today order, alternatives grade).
+- `node tests/browser-stage3.cjs` (muted headless Chrome 390×844, speech stubbed, outside requests blocked): ALL OK, 16 checks: old store re-keyed in the browser; Today 10-min intros = Je vous en prie / Merci, vous aussi / Bonjour / Pardon, je descends / …; lesson days 1, 6, 7, 12, 18 show the new content; conversations have no carnet; no sideways scroll; 0 console errors (blocked outside fonts/gtag/supabase excluded); en-pt lesson + flashcards render, no Paris section, 0 errors.
+
+### Not done / unverified
+- No native-speaker or strong-model review pass of the new French beyond my own self-review (scope allows one as session usage).
+- Airport ticket price not written (sources disagree: €14 vs €14.80).
+- Not tested on a real iPhone.
+
+### Next step
+Lead: independent check (`node tests/content-fr.mjs`, `node tests/srs-sim.mjs`, serve and run `node tests/browser-stage3.cjs`), then push `paris-v2-stage3` once (run `jj-gh-spend` first), PR into main, merge, confirm the deploy shows "Paris survival" on Day 1 at https://apps.cannoncodeconnect.com/cunninglinguist/learn.html.
