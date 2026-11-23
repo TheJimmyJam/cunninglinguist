@@ -2859,7 +2859,7 @@ async function doTranslate() {
     renderTranslatorView();
     // Auto-play the result
     if (translatorState.lastResult && !translatorState.error) {
-      setTimeout(() => speakWord(translatorState.lastResult.word), 200);
+      setTimeout(() => { const lr = translatorState.lastResult; if (lr) speakWord(lr.word); }, 200);
     }
   }
 }

@@ -80,8 +80,9 @@ const ok = (name, cond, info) => { results.push([cond ? 'ok  ' : 'FAIL', name, i
   // More → Listen
   await page.click('.bottom-nav button[data-bnav="more"]');
   const sheet = await page.evaluate(() => [...document.querySelectorAll('.more-sheet button')].filter(b => b.offsetParent).map(b => { const q = b.getBoundingClientRect(); return { t: b.innerText, w: Math.round(q.width * 10) / 10, h: Math.round(q.height * 10) / 10, x: Math.round(q.left + q.width / 2) }; }));
-  const rest = sheet.slice(1);
-  ok('More sheet: Listen first, full row; other 6 equal (2x3)', sheet[0].t === 'Listen' && sheet.length === 7 && rest.every(b => b.w === rest[0].w && b.h === rest[0].h) && Math.abs(sheet[0].x - 195) <= 1 && sheet[0].h === rest[0].h, JSON.stringify(sheet));
+  // Stage 5 added Talk as a second full-width row under Listen.
+  const rest = sheet.slice(2);
+  ok('More sheet: Listen + Talk full rows; other 6 equal (2x3)', sheet[0].t === 'Listen' && sheet[1].t === 'Talk' && sheet.length === 8 && sheet[1].w === sheet[0].w && rest.every(b => b.w === rest[0].w && b.h === rest[0].h) && Math.abs(sheet[0].x - 195) <= 1 && sheet[0].h === rest[0].h && sheet[1].h === rest[0].h, JSON.stringify(sheet));
   await page.screenshot({ path: SHOTS + '/s4-more-390.png' });
   await page.click('.more-sheet button[data-view="listen"]');
   const startBtns = await page.evaluate(() => [...document.querySelectorAll('.today-actions .today-btn')].map(b => { const q = b.getBoundingClientRect(); return [b.innerText, Math.round(q.width), Math.round(q.height)]; }));

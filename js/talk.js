@@ -303,11 +303,11 @@ function talkDebriefHtml() {
         ${todayTile(r.hints, 'Hints')}
       </div>
       ${r.summary ? `<p class="talk-summary">${escapeHtml(r.summary)}</p>` : ''}
-      ${r.notes.length ? `<ul class="today-recap">${r.notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : ''}
+      ${r.notes.length ? `<ul class="talk-notes">${r.notes.map(n => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : ''}
       ${r.corrections.length ? `
         <h3 class="talk-h">Corrections</h3>
-        <ul class="today-recap talk-corrections">${r.corrections.map(c => `
-          <li><b>${escapeHtml(c.fr)}</b> ${escapeHtml(c.en)}${c.said ? `<div class="talk-said">${escapeHtml(c.said)}</div>` : ''}${c.note ? `<div class="talk-said">${escapeHtml(c.note)}</div>` : ''}</li>`).join('')}
+        <ul class="talk-corrections">${r.corrections.map(c => `
+          <li><b>${escapeHtml(c.fr)}</b><div class="talk-corr-en">${escapeHtml(c.en)}</div>${c.said ? `<div class="talk-said">${escapeHtml(c.said)}</div>` : ''}${c.note ? `<div class="talk-said">${escapeHtml(c.note)}</div>` : ''}</li>`).join('')}
         </ul>` : ''}
       <h3 class="talk-h">Transcript</h3>
       <ol class="talk-transcript">${t.turns.map(x => `
