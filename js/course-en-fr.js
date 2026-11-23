@@ -788,7 +788,7 @@ const COURSE_FR = [
     vocab:[
       {fr:"un musée", ipa:"uhn moo-zay", en:"a museum"},
       {fr:"un billet", ipa:"uhn bee-yeh", en:"a ticket"},
-      {fr:"l'entrée", ipa:"lahn-tray", en:"the entrance"},
+      {fr:"l'entrée du musée", ipa:"lahn-tray doo moo-zay", en:"the museum entrance"},
       {fr:"la sortie", ipa:"lah sor-tee", en:"the exit"},
       {fr:"un guide", ipa:"uhn geed", en:"a guide"},
       {fr:"une visite", ipa:"oon vee-zeet", en:"a visit/tour"},

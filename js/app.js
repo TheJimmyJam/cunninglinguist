@@ -250,6 +250,7 @@ const UI_STRINGS = {
     nav_lesson:'Today\'s Lesson', nav_flashcards:'Flashcards', nav_quiz:'Quiz',
     nav_all:'All Lessons', nav_conversations:'Conversations',
     nav_translator:'Translator', nav_notebook:'Notebook', nav_progress:'Progress',
+nav_lessons:'Lessons', nav_more:'More',
     stat_day:'Day', stat_streak:'Streak', stat_mastered:'Mastered', stat_progress:'Progress',
     lesson_vocabulary:'Vocabulary', lesson_key_phrases:'Key Phrases',
     lesson_grammar_tip:'Grammar / Cultural Tip', lesson_practice:'Practice',
@@ -1347,7 +1348,8 @@ function t(key, ...args) {
 // Update nav button labels and header stat labels to current source language
 function updateNavLabels() {
   const navMap = {
-    lesson:'nav_lesson', flashcards:'nav_flashcards', quiz:'nav_quiz',
+    today:'nav_today',
+    lesson: todaySupported() ? 'nav_lessons' : 'nav_lesson', flashcards:'nav_flashcards', quiz:'nav_quiz',
     all:'nav_all', conversations:'nav_conversations',
     translator:'nav_translator', notebook:'nav_notebook', progress:'nav_progress',
   };
@@ -1357,6 +1359,20 @@ function updateNavLabels() {
     const badge = btn.querySelector('.nav-badge');
     btn.textContent = t(key);
     if (badge) btn.appendChild(badge);
+  });
+  const topToday = document.querySelector('nav button[data-view="today"]');
+  if (topToday) topToday.style.display = todaySupported() ? '' : 'none';
+  // Phone bottom bar: Today (the lesson on pairs without Today), Flashcards, Translator, More
+  document.querySelectorAll('.bottom-nav button[data-bnav]').forEach(btn => {
+    const b = btn.dataset.bnav;
+    const view = b === 'today' ? defaultView() : b;
+    if (b !== 'more') btn.dataset.view = view;
+    const label = btn.querySelector('.bn-label');
+    if (label) label.textContent = b === 'today' ? t('nav_today') : b === 'more' ? t('nav_more') : t(navMap[b]);
+  });
+  document.querySelectorAll('.more-sheet button[data-view]').forEach(btn => {
+    const key = navMap[btn.dataset.view];
+    if (key) btn.textContent = t(key);
   });
   const statMap = {
     'stat-label-day':'stat_day', 'stat-label-streak':'stat_streak',
@@ -1491,31 +1507,54 @@ function saveState() {
   localStorage.setItem(getStorageKey(), JSON.stringify(state));
   window.cllSync?.pushProgress(currentLang, state);
 }
-function updateStreak() {
-  const today = new Date().toDateString();
-  if (state.lastVisit === today) return;
-  const yesterday = new Date(Date.now() - 86400000).toDateString();
-  // Reset grace allowance each calendar month
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  if (state.graceMonth !== thisMonth) { state.graceUsed = 0; state.graceMonth = thisMonth; }
-  if (state.lastVisit === yesterday) {
-    state.streak++;
-  } else if (!state.lastVisit) {
-    state.streak = 1;
-  } else {
-    // Missed a day — invoke Diplomatic Immunity if available
-    if (state.streak > 0 && state.graceUsed < 2) {
-      state.graceUsed++;
-      // streak holds; show toast after state loads
-      setTimeout(() => showToast(
-        `🎩 Diplomatic Immunity invoked. Streak preserved. (${state.graceUsed}/2 grace days used this month)`, 5000
-      ), 600);
-    } else {
-      state.streak = 1;
-    }
+// ── Spaced repetition store ─────────────────────────────────
+// Own key per pair (cll_srs_<pair>), separate from the synced progress object.
+function getSrsKey() { return 'cll_srs_' + currentLang; }
+function loadSrs() {
+  let st = null;
+  try { st = JSON.parse(localStorage.getItem(getSrsKey()) || 'null'); } catch (e) {}
+  if (!st || typeof st.cards !== 'object') st = CLSRS.emptyStore();
+  if (!st.migrated) {
+    // Old flip-card "learned" bucket → seen once, due tomorrow.
+    CLSRS.migrateLearned(st, state.learnedCards, Date.now());
+    try { localStorage.setItem(getSrsKey(), JSON.stringify(st)); } catch (e) {}
   }
-  state.lastVisit = today;
+  return st;
+}
+function saveSrs() {
+  try { localStorage.setItem(getSrsKey(), JSON.stringify(srs)); } catch (e) {}
+}
+let srs = loadSrs();
+function isKeyMastered(key) { return CLSRS.isMastered(srs, key); }
+
+// Honest streak: only a finished session (Today, or a completed lesson on
+// pairs without Today) moves it; a broken chain shows 0.
+function updateStreak() {
+  if (state.lastSessionDay === undefined) {
+    const lv = state.lastVisit ? Date.parse(state.lastVisit) : NaN;
+    state.lastSessionDay = isNaN(lv) ? null : CLSRS.dayKey(lv);
+  }
+  const live = CLSRS.liveStreak(state, Date.now());
+  if (live !== state.streak) { state.streak = live; saveState(); }
+}
+function finishStreakDay() {
+  const r = CLSRS.finishSessionDay(state, Date.now());
+  state.streak = r.state.streak;
+  state.lastSessionDay = r.state.lastSessionDay;
+  state.graceUsed = r.state.graceUsed;
+  state.graceMonth = r.state.graceMonth;
+  state.lastVisit = new Date().toDateString();
   saveState();
+  refreshStats();
+  if (r.graced) {
+    setTimeout(() => showToast(`🎩 Diplomatic Immunity invoked. Streak preserved. (${state.graceUsed}/2 grace days used this month)`, 5000), 600);
+  }
+  if (r.counted && STREAK_MILESTONES[state.streak] && !state.shownMilestones.includes(state.streak)) {
+    state.shownMilestones.push(state.streak);
+    saveState();
+    setTimeout(() => showMilestoneToast(STREAK_MILESTONES[state.streak]), 400);
+  }
+  return r;
 }
 updateStreak();
 
@@ -1532,13 +1571,16 @@ function setLanguage(lang) {
   state = loadState();
   if (!Array.isArray(state.savedVocab)) state.savedVocab = [];
   if (!Array.isArray(state.shownMilestones)) state.shownMilestones = [];
+  if (!Array.isArray(state.learnedCards)) state.learnedCards = [];
+  srs = loadSrs();
+  todaySession = null;
   updateStreak();
   // Reset translator state for new language
   translatorState.lastResult = null;
   translatorState.recent = loadRecent();
   translatorState.error = null;
   // Reset flash/quiz state
-  flashState = { pool: [], learned: [], index: 0, flipped: false, scope: 'learned', ipaMode: 'show' };
+  flashState = { pool: [], later: 0, practiceAll: false, index: 0, flipped: false, scope: 'learned', ipaMode: 'show' };
   quizState = { questions:[], current:0, score:0, answered:false };
   // Update header subtitle
   const subtitleEl = document.getElementById('lang-subtitle');
@@ -1553,7 +1595,7 @@ function setLanguage(lang) {
   }
   refreshStats();
   updateNavLabels();
-  setView('lesson');
+  setView(defaultView());
 }
 
 // ============================================================
@@ -1570,7 +1612,7 @@ function getQuizStars(correct, total) {
 function isDayMastered(dayNum) {
   const day = COURSE.find(d => d.day === dayNum);
   if (!day || !state.completedDays.includes(dayNum)) return false;
-  const masteredCount = day.vocab.filter(v => (state.masteredVocab[getNative(v)] || 0) >= 2).length;
+  const masteredCount = day.vocab.filter(v => isKeyMastered(getNative(v))).length;
   return day.vocab.length > 0 && masteredCount / day.vocab.length >= 0.8;
 }
 
@@ -1678,11 +1720,13 @@ function removeSavedCard(wordKey) {
 // ============================================================
 // HEADER STATS
 // ============================================================
+function countMastered() {
+  return Object.keys(srs.cards).filter(isKeyMastered).length;
+}
 function refreshStats() {
   document.getElementById('stat-day').textContent = state.currentDay;
   document.getElementById('stat-streak').textContent = state.streak;
-  const mastered = Object.values(state.masteredVocab).filter(c => c >= 2).length;
-  document.getElementById('stat-mastered').textContent = mastered;
+  document.getElementById('stat-mastered').textContent = countMastered();
   const pct = Math.round((state.completedDays.length / 30) * 100);
   document.getElementById('stat-pct').textContent = pct + '%';
   updateReviewBadge();
@@ -1697,6 +1741,23 @@ function setActiveNav(view) {
   document.querySelectorAll('nav button').forEach(b => {
     b.classList.toggle('active', b.dataset.view === view);
   });
+  let matched = false;
+  document.querySelectorAll('.bottom-nav button[data-bnav]').forEach(b => {
+    const on = b.dataset.bnav !== 'more' && b.dataset.view === view;
+    if (on) matched = true;
+    b.classList.toggle('active', on);
+  });
+  document.querySelector('.bottom-nav button[data-bnav="more"]')?.classList.toggle('active', !matched && !!view);
+  document.querySelectorAll('.more-sheet button[data-view]').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === view);
+  });
+}
+function toggleMoreSheet(open) {
+  const sheet = document.getElementById('more-sheet');
+  if (!sheet) return;
+  const on = open === undefined ? !sheet.classList.contains('open') : open;
+  sheet.classList.toggle('open', on);
+  document.querySelector('.bottom-nav button[data-bnav="more"]')?.setAttribute('aria-expanded', on ? 'true' : 'false');
 }
 
 function renderLessonView(dayNum) {
@@ -1740,19 +1801,21 @@ function renderLessonView(dayNum) {
     <h3>${t('lesson_vocabulary')}</h3>
     <div class="vocab-grid">
       ${day.vocab.map(v => `
-        <div class="vocab-card" onclick="this.classList.toggle('flipped')" title="Click to flip">
-          <div class="vocab-flip">
-            <div class="vocab-face vocab-front">
-              <div class="fr">${getFrontWord(v)}</div>
-              ${isTargetEnglish() ? '' : `<div class="ipa">${v.phonetic || v.ipa || ''}</div>`}
-              <button class="speak-btn speak-btn-sm" onclick="event.stopPropagation();speakWord('${getSpeakWord(v).replace(/'/g,"\\'")}','${currentTarget()}')">🔊</button>
-              <div class="vocab-flip-hint">${t('lesson_tap_reveal')}</div>
-            </div>
-            <div class="vocab-face vocab-back">
-              <div class="en">${getBackWord(v)}</div>
-              ${isTargetEnglish() ? `<div class="ipa">${v.phonetic || v.ipa || ''}</div>` : ''}
+        <div class="vocab-cell">
+          <div class="vocab-card" onclick="this.classList.toggle('flipped')" title="Click to flip">
+            <div class="vocab-flip">
+              <div class="vocab-face vocab-front">
+                <div class="fr">${getFrontWord(v)}</div>
+                ${isTargetEnglish() ? '' : `<div class="ipa">${v.phonetic || v.ipa || ''}</div>`}
+                <div class="vocab-flip-hint">${t('lesson_tap_reveal')}</div>
+              </div>
+              <div class="vocab-face vocab-back">
+                <div class="en">${getBackWord(v)}</div>
+                ${isTargetEnglish() ? `<div class="ipa">${v.phonetic || v.ipa || ''}</div>` : ''}
+              </div>
             </div>
           </div>
+          <button class="speak-btn vocab-speak" onclick="speakWord('${getSpeakWord(v).replace(/'/g,"\\'")}','${currentTarget()}')" aria-label="Play">🔊</button>
         </div>
       `).join('')}
     </div>
@@ -1822,18 +1885,10 @@ function completeDay(dayNum) {
     if (dayNum >= state.currentDay && state.currentDay < 30) {
       state.currentDay = Math.min(30, dayNum + 1);
     }
-    // Update streak for completing today
-    const today = new Date().toDateString();
-    state.lastVisit = today;
-    state.streak = Math.max(state.streak, state.completedDays.length);
     saveState();
     refreshStats();
-    // Check streak milestones
-    if (STREAK_MILESTONES[state.streak] && !state.shownMilestones.includes(state.streak)) {
-      state.shownMilestones.push(state.streak);
-      saveState();
-      setTimeout(() => showMilestoneToast(STREAK_MILESTONES[state.streak]), 400);
-    }
+    // Pairs without a Today session count a finished lesson as the day's session.
+    if (!todaySupported()) finishStreakDay();
     // Always navigate to the day after the one just completed
     const nextDayNum = Math.min(30, dayNum + 1);
     renderLessonView(nextDayNum);
@@ -1850,8 +1905,6 @@ function uncompleteDay(dayNum, stayInAll) {
   if (state.currentDay > dayNum) {
     state.currentDay = dayNum;
   }
-  // Recalculate streak from remaining completed days
-  state.streak = state.completedDays.length;
   saveState();
   refreshStats();
   showToast(t('toast_day_incomplete', dayNum));
@@ -1860,7 +1913,7 @@ function uncompleteDay(dayNum, stayInAll) {
 }
 
 // FLASHCARDS
-let flashState = { pool: [], learned: [], index: 0, flipped: false, scope: 'learned', ipaMode: 'show' };
+let flashState = { pool: [], later: 0, practiceAll: false, index: 0, flipped: false, scope: 'learned', ipaMode: 'show' };
 
 function renderFlashcardView() {
   rebuildFlashPool();
@@ -1868,18 +1921,15 @@ function renderFlashcardView() {
 }
 function renderFlashcardCard() {
   if (flashState.pool.length === 0) {
-    // All-done: either session complete or genuinely empty deck
-    if (state.learnedCards.length > 0) {
-      const chips = getLearnedCardObjects().slice(-20).map(c =>
-        `<span class="learned-chip">${getFrontWord(c)}<button class="chip-unlearn" onclick="unlearnCard(${JSON.stringify(getNative(c)).replace(/"/g,'&quot;')})" title="Move back to unlearned">↩</button></span>`
-      ).join('');
+    // All-done: everything in this deck is scheduled for later
+    if (flashState.later > 0) {
+      const tomorrow = CLSRS.countDueBefore(srs, CLSRS.addDays(Date.now(), 2));
       content.innerHTML = `
         <div class="flash-all-done">
           <div class="all-done-icon">🎉</div>
-          <h3>Deck complete!</h3>
-          <p>You have <strong>${state.learnedCards.length}</strong> card${state.learnedCards.length===1?'':'s'} in your learned bucket.</p>
-          <div class="flash-learned-chips" style="margin:16px 0;">${chips}</div>
-          <button class="complete-btn" onclick="resetLearnedBucket()" style="margin-top:8px;">↺ Reset &amp; practice again</button>
+          <h3>All caught up</h3>
+          <p><strong>${tomorrow}</strong> due by tomorrow · ${flashState.later} scheduled</p>
+          <button class="complete-btn" onclick="flashState.practiceAll=true;flashState.index=0;renderFlashcardView()" style="margin-top:8px;">↺ Practice anyway</button>
         </div>
       `;
       return;
@@ -1920,8 +1970,8 @@ function renderFlashcardCard() {
   const frontContent = flashState.flipped
     ? `<div class="word">${backWord}</div>${backIpa ? `<div class="ipa-large">${backIpa}</div>` : ''}<div class="hint">${dayLabel}</div>`
     : (showIpa
-        ? `<div class="word">${frontWord}</div>${frontIpa ? `<div class="ipa-large">${frontIpa}</div>` : ''}${speakBtn}<div class="hint">${t('flash_tap_flip')}</div>`
-        : `<div class="word">${frontWord}</div>${speakBtn}<div class="hint pronunciation-challenge">${t('flash_say_it')}</div>`);
+        ? `<div class="word">${frontWord}</div>${frontIpa ? `<div class="ipa-large">${frontIpa}</div>` : ''}<div class="hint">${t('flash_tap_flip')}</div>`
+        : `<div class="word">${frontWord}</div><div class="hint pronunciation-challenge">${t('flash_say_it')}</div>`);
   content.innerHTML = `
     <div class="flash-layout">
       <div class="flash-sidebar">
@@ -1938,29 +1988,23 @@ function renderFlashcardCard() {
         <div class="flash-sidebar-label" style="margin-top:18px;">${t('flash_mode')}</div>
         <button class="ipa-mode-btn ${showIpa?'active':''}" style="width:100%;margin-bottom:6px;" onclick="flashState.ipaMode='show';flashState.flipped=false;renderFlashcardCard()">${t('flash_ipa_on')}</button>
         <button class="ipa-mode-btn ${!showIpa?'active':''}" style="width:100%;" onclick="flashState.ipaMode='hide';flashState.flipped=false;renderFlashcardCard()">${t('flash_challenge')}</button>
-        <div class="flash-sidebar-label" style="margin-top:22px;">Unlearned</div>
+        <div class="flash-sidebar-label" style="margin-top:22px;">Due now</div>
         <div class="flash-bucket-count">${flashState.pool.length} card${flashState.pool.length===1?'':'s'}</div>
-        <div class="flash-sidebar-label" style="margin-top:14px;">Learned</div>
-        <div class="flash-bucket-count">${state.learnedCards.length} card${state.learnedCards.length===1?'':'s'}</div>
-        ${state.learnedCards.length > 0 ? `<button class="flash-sidebar-btn" style="margin-top:8px;font-size:11px;opacity:0.7;" onclick="resetLearnedBucket()">↺ Reset learned</button>` : ''}
+        <div class="flash-sidebar-label" style="margin-top:14px;">Scheduled</div>
+        <div class="flash-bucket-count">${flashState.later} card${flashState.later===1?'':'s'}</div>
       </div>
       <div class="flash-main">
-        <div class="flashcard ${flashState.flipped?'flipped':''}" onclick="flashState.flipped=!flashState.flipped;renderFlashcardCard()">
-          ${frontContent}
+        <div class="flashcard-wrap">
+          <div class="flashcard ${flashState.flipped?'flipped':''}" onclick="flashState.flipped=!flashState.flipped;renderFlashcardCard()">
+            ${frontContent}
+          </div>
+          ${flashState.flipped ? '' : speakBtn}
         </div>
         <div class="flashcard-controls">
           <button class="btn-need" onclick="markCard('need')">${t('flash_need_btn')}</button>
           <button class="btn-skip" onclick="nextCard()">${t('flash_skip')}</button>
           <button class="btn-got" onclick="markCard('got')">${t('flash_got_it')}</button>
         </div>
-        ${state.learnedCards.length > 0 ? `
-        <div class="flash-learned-section">
-          <div class="flash-learned-header">✓ Learned (${state.learnedCards.length})</div>
-          <div class="flash-learned-chips">
-            ${getLearnedCardObjects().slice(-20).map(c => `<span class="learned-chip">${getFrontWord(c)}<button class="chip-unlearn" onclick="unlearnCard(${JSON.stringify(getNative(c)).replace(/"/g,'&quot;')})" title="Move back to unlearned">↩</button></span>`).join('')}
-            ${state.learnedCards.length > 20 ? `<span class="learned-chip" style="opacity:0.5;">+${state.learnedCards.length-20} more</span>` : ''}
-          </div>
-        </div>` : ''}
       </div>
     </div>
   `;
@@ -1986,9 +2030,13 @@ function rebuildFlashPool() {
       pool = [...personal, ...pool];
     }
   }
-  // Exclude cards already in the persistent learned bucket
-  const learnedSet = new Set(state.learnedCards);
-  pool = pool.filter(v => !learnedSet.has(getNative(v)));
+  // Spaced repetition: only cards that are new or due (unless practising anyway)
+  const now = Date.now();
+  const seen = new Set();
+  pool = pool.filter(v => { const k = getNative(v); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+  const isReady = v => { const c = CLSRS.getCard(srs, getNative(v), 'rec'); return !c || c.due <= now; };
+  flashState.later = flashState.practiceAll ? 0 : pool.filter(v => !isReady(v)).length;
+  if (!flashState.practiceAll) pool = pool.filter(isReady);
   flashState.pool = pool;
   if (flashState.index >= pool.length) flashState.index = 0;
 }
@@ -2002,30 +2050,29 @@ function shufflePool() {
 }
 function markCard(type) {
   const card = flashState.pool[flashState.index];
-  if (type === 'got') {
-    const key = getNative(card);
+  if (!card) return;
+  const key = getNative(card);
+  const ok = type === 'got';
+  CLSRS.grade(srs, key, 'rec', ok, Date.now());
+  saveSrs();
+  if (ok) {
     state.masteredVocab[key] = (state.masteredVocab[key]||0)+1;
     state.needWorkVocab[key] = 0;
-    // Add to persistent learned bucket if not already there
-    if (!state.learnedCards.includes(key)) {
-      state.learnedCards.push(key);
-    }
-    // Remove from active pool
     flashState.pool.splice(flashState.index, 1);
-    flashState.flipped = false;
-    if (flashState.pool.length > 0 && flashState.index >= flashState.pool.length) {
-      flashState.index = 0;
-    }
-    saveState();
-    refreshStats();
-    renderFlashcardCard();
+    if (!flashState.practiceAll) flashState.later++;
   } else {
-    state.needWorkVocab[getNative(card)] = (state.needWorkVocab[getNative(card)]||0)+1;
+    state.needWorkVocab[key] = (state.needWorkVocab[key]||0)+1;
     showToast(t('toast_added_review'));
-    saveState();
-    refreshStats();
-    nextCard();
+    // Missed cards come back at the end of this run
+    flashState.pool.splice(flashState.index, 1);
+    flashState.pool.push(card);
   }
+  flashState.flipped = false;
+  if (flashState.index >= flashState.pool.length) flashState.index = 0;
+  if (!flashState.pool.length) flashState.practiceAll = false;
+  saveState();
+  refreshStats();
+  renderFlashcardCard();
 }
 function nextCard() {
   flashState.flipped = false;
@@ -2038,27 +2085,6 @@ function resetFlashSession() {
   shufflePool();
   renderFlashcardCard();
 }
-// Returns card objects for all keys in the persistent learned bucket
-function getLearnedCardObjects() {
-  const learnedSet = new Set(state.learnedCards);
-  return getAllVocab().filter(v => learnedSet.has(getNative(v)));
-}
-// Moves a single card back from learned → unlearned
-function unlearnCard(key) {
-  state.learnedCards = state.learnedCards.filter(k => k !== key);
-  saveState();
-  rebuildFlashPool();
-  renderFlashcardCard();
-}
-// Clears the persistent learned bucket and rebuilds the pool
-function resetLearnedBucket() {
-  state.learnedCards = [];
-  saveState();
-  rebuildFlashPool();
-  shufflePool();
-  renderFlashcardCard();
-}
-
 // QUIZ
 let quizState = { questions:[], current:0, score:0, answered:false };
 let _quizKeyHandler = null;
@@ -2066,11 +2092,13 @@ let _quizKeyHandler = null;
 function setupQuizEnterKey() {
   if (_quizKeyHandler) document.removeEventListener('keydown', _quizKeyHandler);
   _quizKeyHandler = function(e) {
-    if (e.key !== 'Enter') return;
-    // Let the type-it input handle its own Enter (it submits or advances inline)
-    if (document.activeElement && document.activeElement.id === 'type-it-inp') return;
+    if (e.key !== 'Enter' || currentView !== 'quiz') return;
+    // Inputs and buttons handle their own Enter (the type-it input submits or
+    // advances inline; the event still reaches document after a re-render)
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
     const q = quizState.questions[quizState.current];
-    const canAdvance = quizState.answered || (q && q.done);
+    const canAdvance = quizState.answered || (q && (q.done || q.answered));
     if (canAdvance) {
       quizState.current++;
       quizState.answered = false;
@@ -2219,7 +2247,8 @@ function renderTypeItQ(q, proctorCol, progressLabel) {
               <div class="feedback-quip">"${q.isCorrect
                 ? CORRECT_QUIPS[Math.floor(Math.random() * CORRECT_QUIPS.length)]
                 : WRONG_QUIPS[Math.floor(Math.random() * WRONG_QUIPS.length)]}"</div>
-              ${!q.isCorrect ? `<div style="margin-top:6px;font-size:14px;font-style:normal;">Answer: <strong>${escapeHtml(q.correct)}</strong>${q.phonetic ? ` · <span style="color:var(--muted)">${escapeHtml(q.phonetic)}</span>` : ''}</div>` : ''}
+              ${!q.isCorrect ? `<div style="margin-top:6px;font-size:14px;font-style:normal;">Answer: <strong>${escapeHtml(q.correct)}</strong>${q.phonetic ? ` · <span style="color:var(--muted)">${escapeHtml(q.phonetic)}</span>` : ''}</div>`
+                : q.nudge ? `<div class="accent-nudge">Accents: <strong>${escapeHtml(q.expected)}</strong></div>` : ''}
             </div>
           </div>
         ` : `
@@ -2227,7 +2256,7 @@ function renderTypeItQ(q, proctorCol, progressLabel) {
             <input class="type-it-input" id="type-it-inp" type="text" placeholder="Type your answer…"
               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
               value="${escapeHtml(q.typed || '')}"
-              onkeydown="if(event.key==='Enter'){if(quizState.questions[quizState.current].answered){quizState.current++;quizState.answered=false;renderQuizView();}else{answerTypeIt();}}"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();answerTypeIt();}"
               oninput="quizState.questions[quizState.current].typed=this.value">
             <button class="type-it-submit" onclick="answerTypeIt()">${t('quiz_check')}</button>
           </div>
@@ -2245,24 +2274,10 @@ function answerTypeIt() {
   if (q.answered) return;
   const typed = (q.typed || '').trim();
   if (!typed) return;
-  const norm = s => {
-    let r = s.toLowerCase().trim()
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/[.,!?;:'"()¡¿\-]/g, '').replace(/\s+/g, ' ');
-    // Normalize common contractions so "I'm" and "I am" both grade the same
-    r = r.replace(/\bi'm\b/g,'i am').replace(/\byou're\b/g,'you are')
-         .replace(/\bhe's\b/g,'he is').replace(/\bshe's\b/g,'she is')
-         .replace(/\bit's\b/g,'it is').replace(/\bwe're\b/g,'we are')
-         .replace(/\bthey're\b/g,'they are').replace(/\bdon't\b/g,'do not')
-         .replace(/\bdoesn't\b/g,'does not').replace(/\bcan't\b/g,'cannot')
-         .replace(/\bwon't\b/g,'will not').replace(/\bisn't\b/g,'is not')
-         .replace(/\baren't\b/g,'are not');
-    return r.trim();
-  };
-  // Split "hello / good morning" style answers — any alternative counts as correct
-  const alternatives = q.correct.split(/\s*[\/|]\s*/).map(norm).filter(Boolean);
-  const typedNorm = norm(typed);
-  q.isCorrect = alternatives.some(alt => alt === typedNorm);
+  const g = CLSRS.gradeAnswer(typed, q.correct, { lang: q.answerLang || 'en' });
+  q.isCorrect = g.ok;
+  q.nudge = g.nudge;
+  q.expected = g.expected;
   q.answered = true;
   if (q.isCorrect) { quizState.score++; state.quizScore.correct++; }
   state.quizScore.total++;
@@ -2379,8 +2394,16 @@ function generateQuiz() {
   pool.forEach((item, idx) => {
     // Insert one match-pairs question in the middle
     if (idx === insertMatchAt) {
-      const pairPool = [...learned].sort(() => Math.random() - 0.5).slice(0, 4);
-      const pairs = pairPool.map(v => ({ native: getFrontWord(v), en: getBackWord(v) }));
+      // Four pairs with no repeated word on either side, or the round can't finish
+      const pairs = [];
+      const seenL = new Set(), seenR = new Set();
+      [...learned].sort(() => Math.random() - 0.5).forEach(v => {
+        const l = getFrontWord(v), r = getBackWord(v);
+        const kl = CLSRS.answerKey(l, 'fr', false), kr = CLSRS.answerKey(r, 'en', false);
+        if (pairs.length >= 4 || !l || !r || seenL.has(kl) || seenR.has(kr)) return;
+        seenL.add(kl); seenR.add(kr);
+        pairs.push({ native: l, en: r });
+      });
       quizState.questions.push({
         type: 'match-pairs',
         pairs,
@@ -2401,23 +2424,29 @@ function generateQuiz() {
       // When target is English (X-en), always show native→English.
       // Otherwise randomise 50/50.
       const showFrontToBack = isTargetEnglish() ? true : Math.random() > 0.5;
-      const wrongs = all.filter(v => getFrontWord(v) !== getFrontWord(item)).sort(() => Math.random() - 0.5).slice(0, 3);
       const correctText = showFrontToBack ? getBackWord(item) : getFrontWord(item);
-      const opts = [correctText, ...wrongs.map(w => showFrontToBack ? getBackWord(w) : getFrontWord(w))].sort(() => Math.random() - 0.5);
+      const candidates = all.filter(v => getFrontWord(v) !== getFrontWord(item)).sort(() => Math.random() - 0.5)
+        .map(w => showFrontToBack ? getBackWord(w) : getFrontWord(w));
+      const opts = CLSRS.uniqueOptions(correctText, candidates, 4).sort(() => Math.random() - 0.5);
       quizState.questions.push({
         type: 'mc',
         prompt: showFrontToBack
-          ? t('quiz_what_does', getFrontWord(item), targetLabel)
+          ? t('quiz_what_does', getFrontWord(item), sourceLabel)
           : t('quiz_how_say', getBackWord(item), targetLabel),
         options: opts,
         correct: correctText
       });
     } else {
+      // Half the time produce the target language (English → French), half recognise it
+      const produce = Math.random() > 0.5;
       quizState.questions.push({
         type: 'type-it',
-        prompt: t('quiz_what_does', getFrontWord(item), targetLabel),
-        correct: getBackWord(item),
-        phonetic: item.phonetic || '',
+        prompt: produce
+          ? t('quiz_how_say', getBackWord(item), targetLabel)
+          : t('quiz_what_does', getFrontWord(item), sourceLabel),
+        correct: produce ? getFrontWord(item) : getBackWord(item),
+        answerLang: produce ? currentTarget() : currentSource(),
+        phonetic: produce ? (item.phonetic || item.ipa || '') : '',
         answered: false,
         isCorrect: false,
         typed: ''
@@ -2547,7 +2576,7 @@ function closeConvo(e) {
 function renderProgressView() {
   const totalVocab = getAllVocab().length;
   const seen = getLearnedVocab().length;
-  const mastered = Object.values(state.masteredVocab).filter(c=>c>=2).length;
+  const mastered = countMastered();
   const needWork = Object.values(state.needWorkVocab).filter(c=>c>=1).length;
   const daysComplete = state.completedDays.length;
   const pct = Math.round((daysComplete / 30) * 100);
@@ -2655,8 +2684,7 @@ function renderTranslatorView() {
     <p class="subtitle">${isCrossPair() ? t('trans_subtitle_cross', LANGS[currentSource()].label, LANGS[currentTarget()].label) : pair.translatorSubtitle}</p>
     <form class="translator-form" onsubmit="event.preventDefault();doTranslate()">
       <input id="translate-input" type="text" placeholder="${pair.inputPlaceholder}" autofocus
-             value="${(r?.input || '').replace(/"/g, '&quot;')}"
-             onkeydown="if(event.key==='Enter')doTranslate()">
+             value="${(r?.input || '').replace(/"/g, '&quot;')}">
       <button id="translate-btn" type="submit" ${translatorState.loading?'disabled':''}>
         ${translatorState.loading ? `<span class="loader"></span>${t('trans_loading')}` : t('trans_btn')}
       </button>
@@ -2733,7 +2761,7 @@ function escapeHtml(s) {
 async function doTranslate() {
   const inp = document.getElementById('translate-input');
   const text = (inp?.value || '').trim();
-  if (!text) return;
+  if (!text || translatorState.loading) return;
   primeSpeech(); // inside the tap, before the await, so auto-play works on iOS
   translatorState.loading = true;
   translatorState.error = null;
@@ -2795,14 +2823,15 @@ function toggleSaveCard() {
     }
   }, 50);
 }
-function showToast(msg) {
+function showToast(msg, duration = 2600) {
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
   const t = document.createElement('div');
   t.className = 'toast';
   t.textContent = msg;
+  t.style.animation = `toast-in 0.3s ease, toast-out 0.3s ease ${Math.max(0.3, (duration - 400) / 1000)}s forwards`;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2600);
+  setTimeout(() => t.remove(), duration);
 }
 // ── Speech ──────────────────────────────────────────────────
 // Web Speech for now. iOS drops speech that starts after an await, so speakWord
@@ -2991,6 +3020,362 @@ function updateReviewBadge() {
   }
 }
 
+// ============================================================
+// TODAY · 10 MIN — the daily session (English → French only)
+// ============================================================
+const TODAY_PAIRS = ['en-fr'];
+function todaySupported() { return TODAY_PAIRS.includes(currentLang); }
+function defaultView() { return todaySupported() ? 'today' : 'lesson'; }
+function getTodayKey() { return 'cll_today_' + currentLang; }
+let todaySession = null;
+let todayPaused = true; // a saved session opens on the start screen with Resume
+
+// Every vocab word and phrase once, keyed by its target-language text.
+// Within a day, words and phrases alternate so new items include both.
+function getStudyItems() {
+  const seen = new Set();
+  const out = [];
+  const add = (v, day, kind) => {
+    const key = getNative(v);
+    if (!key || seen.has(key) || !getFrontWord(v) || !getBackWord(v)) return;
+    seen.add(key);
+    out.push({ ...v, key, day, kind });
+  };
+  COURSE.forEach(d => {
+    const vs = Array.isArray(d.vocab) ? d.vocab : [];
+    const ps = Array.isArray(d.phrases) ? d.phrases : [];
+    for (let i = 0; i < Math.max(vs.length, ps.length); i++) {
+      if (vs[i]) add(vs[i], d.day, 'vocab');
+      if (ps[i]) add(ps[i], d.day, 'phrase');
+    }
+  });
+  state.savedVocab.forEach(v => add(v, 'saved', 'saved'));
+  return out;
+}
+let _studyCache = { course: null, saved: -1, items: [], map: new Map() };
+function studyItems() {
+  if (_studyCache.course !== COURSE || _studyCache.saved !== state.savedVocab.length) {
+    const items = getStudyItems();
+    _studyCache = { course: COURSE, saved: state.savedVocab.length, items, map: new Map(items.map(i => [i.key, i])) };
+  }
+  return _studyCache.items;
+}
+function studyItem(key) { studyItems(); return _studyCache.map.get(key); }
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// Distinct items with a card due before `ts`
+function dueItemCount(ts) {
+  const allowed = new Set(studyItems().map(i => i.key));
+  return new Set(CLSRS.dueCards(srs, ts, allowed).map(c => c.key)).size;
+}
+
+function buildTodaySession(mode) {
+  const now = Date.now();
+  const short = mode === '3';
+  const items = studyItems();
+  const allowed = new Set(items.map(i => i.key));
+  const reviews = [];
+  const used = new Set();
+  CLSRS.dueCards(srs, now, allowed).forEach(c => {
+    if (used.has(c.key) || reviews.length >= (short ? 6 : 20)) return;
+    used.add(c.key);
+    reviews.push(c);
+  });
+  const nNew = short ? 2 : (reviews.length > 12 ? 4 : 6);
+  const fresh = items.filter(i => i.day !== 'saved' && CLSRS.isNew(srs, i.key)).slice(0, nNew);
+  const steps = reviews.map(c => ({ t: c.dir === 'prod' ? 'recall' : 'recog', key: c.key, review: true }));
+  fresh.forEach(i => steps.push({ t: 'intro', key: i.key }));
+  shuffled(fresh).forEach(i => {
+    const others = shuffled(items.filter(o => o.key !== i.key && o.kind === i.kind)).map(getBackWord);
+    steps.push({ t: 'listen', key: i.key, opts: shuffled(CLSRS.uniqueOptions(getBackWord(i), others, 4)) });
+  });
+  shuffled(fresh).forEach(i => steps.push({ t: 'recall', key: i.key }));
+  if (!short && CONVERSATIONS.length) steps.push({ t: 'scene', idx: (srs.sessions || 0) % CONVERSATIONS.length });
+  steps.push({ t: 'done' });
+  return {
+    date: CLSRS.dayKey(now), mode, steps, i: 0, cur: {},
+    newKeys: fresh.map(i => i.key),
+    tally: { review: [0, 0], listen: [0, 0], recall: [0, 0] },
+    finished: false
+  };
+}
+function loadTodaySession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(getTodayKey()) || 'null');
+    if (s && s.date === CLSRS.dayKey(Date.now()) && Array.isArray(s.steps)) return s;
+  } catch (e) {}
+  return null;
+}
+function saveTodaySession() {
+  try { localStorage.setItem(getTodayKey(), JSON.stringify(todaySession)); } catch (e) {}
+}
+function startToday(mode) {
+  todaySession = buildTodaySession(mode);
+  todayPaused = false;
+  saveTodaySession();
+  renderTodayView(true);
+}
+function resumeToday() { todayPaused = false; renderTodayView(true); }
+function pauseToday() { todayPaused = true; renderTodayView(); }
+
+function daysToParisLabel() {
+  const d = CLSRS.daysUntil(CLSRS.PARIS_DATE, Date.now());
+  return d > 1 ? `${d} days to Paris` : d === 1 ? '1 day to Paris' : d === 0 ? 'Paris today' : 'In Paris';
+}
+function todayTile(value, label) {
+  return `<div class="today-tile"><b>${value}</b><span>${label}</span></div>`;
+}
+
+function renderTodayView(fromTap) {
+  if (!todaySupported()) { renderLessonView(state.currentDay); return; }
+  if (!todaySession) todaySession = loadTodaySession();
+  const s = todaySession;
+  if (!s || todayPaused || s.finished) { renderTodayStart(); return; }
+  const step = s.steps[s.i];
+  if (!step) { s.i = s.steps.length - 1; return renderTodayView(); }
+  if (step.t === 'done') { renderTodaySummary(); return; }
+  const n = s.steps.length - 1; // the summary isn't a step to count
+  const bar = `
+    <div class="today-bar">
+      <button class="today-x" onclick="pauseToday()" aria-label="Pause">×</button>
+      <div class="today-progress"><span style="width:${Math.round(s.i / n * 100)}%"></span></div>
+      <div class="today-count">${s.i + 1}/${n}</div>
+    </div>`;
+  let body = '';
+  let speakNow = null;
+  if (step.t === 'scene') {
+    body = todaySceneHtml(step, s.cur);
+    const line = CONVERSATIONS[step.idx]?.lines[(s.cur.shown || 1) - 1];
+    if (line && line.who === 'them') speakNow = getNative(line);
+  } else {
+    const item = studyItem(step.key);
+    if (!item) { s.i++; s.cur = {}; saveTodaySession(); return renderTodayView(fromTap); }
+    const fr = escapeHtml(getFrontWord(item));
+    const en = escapeHtml(getBackWord(item));
+    const ipa = escapeHtml(item.phonetic || item.ipa || '');
+    const speakBtn = `<div class="today-audio"><button class="speak-btn today-speak" onclick="todaySpeak()" aria-label="Play">🔊</button></div>`;
+    const c = s.cur;
+    if (step.t === 'intro') {
+      CLSRS.introduce(srs, item.key, Date.now());
+      saveSrs();
+      body = `
+        <div class="today-pill">New</div>
+        <div class="today-card"><div class="today-fr">${fr}</div>${ipa ? `<div class="today-ipa">${ipa}</div>` : ''}<div class="today-en">${en}</div></div>
+        ${speakBtn}
+        <div class="today-actions one"><button class="today-btn primary" onclick="todayNext()">Next</button></div>`;
+      speakNow = getSpeakWord(item);
+    } else if (step.t === 'recog') {
+      body = `
+        <div class="today-pill">Review</div>
+        <div class="today-card"><div class="today-fr">${fr}</div>${ipa ? `<div class="today-ipa">${ipa}</div>` : ''}${c.revealed ? `<div class="today-en">${en}</div>` : ''}</div>
+        ${speakBtn}
+        ${c.revealed
+          ? `<div class="today-actions"><button class="today-btn bad" onclick="todayRecog(false)">Missed</button><button class="today-btn good" onclick="todayRecog(true)">Got it</button></div>`
+          : `<div class="today-actions one"><button class="today-btn primary" onclick="todayReveal()">Show</button></div>`}`;
+    } else if (step.t === 'listen') {
+      const correct = getBackWord(item);
+      body = `
+        <div class="today-pill">Listen</div>
+        <div class="today-audio"><button class="speak-btn today-speak today-speak-lg" onclick="todaySpeak()" aria-label="Play">🔊</button></div>
+        ${c.answered ? `<div class="today-card"><div class="today-fr">${fr}</div>${ipa ? `<div class="today-ipa">${ipa}</div>` : ''}</div>` : ''}
+        <div class="today-options">
+          ${step.opts.map((o, j) => {
+            let cls = 'today-btn today-option';
+            if (c.answered && o === correct) cls += ' correct';
+            else if (c.answered && j === c.choice) cls += ' wrong';
+            return `<button class="${cls}" onclick="todayPick(${j})" ${c.answered ? 'disabled' : ''}>${escapeHtml(o)}</button>`;
+          }).join('')}
+        </div>
+        ${c.answered ? `<div class="today-actions one"><button class="today-btn primary" onclick="todayNext()">Continue</button></div>` : ''}`;
+      if (!c.answered) speakNow = getSpeakWord(item);
+    } else if (step.t === 'recall') {
+      body = `
+        <div class="today-pill">${step.review ? 'Review · ' : ''}In French</div>
+        <div class="today-card"><div class="today-prompt">${en}</div></div>
+        <input id="today-input" class="today-input" type="text" lang="fr" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          value="${escapeHtml(c.typed || '')}" ${c.answered ? 'readonly' : ''}
+          oninput="todaySession.cur.typed=this.value"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();todayEnter();}">
+        ${c.answered ? `
+          <div class="today-feedback ${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✗'} <span class="today-answer">${fr}</span></div>
+          ${ipa ? `<div class="today-ipa">${ipa}</div>` : ''}
+          ${c.nudge ? `<div class="accent-nudge">Accents: <strong>${escapeHtml(c.expected)}</strong></div>` : ''}
+          ${speakBtn}
+          <div class="today-actions one"><button class="today-btn primary" onclick="todayNext()">Continue</button></div>`
+        : `<div class="today-actions one"><button class="today-btn primary" onclick="todayCheck()">Check</button></div>`}`;
+    }
+  }
+  content.innerHTML = `<div class="today">${bar}<div class="today-step">${body}</div></div>`;
+  const inp = document.getElementById('today-input');
+  if (inp) inp.focus({ preventScroll: true });
+  if (fromTap && speakNow) speakWord(speakNow, currentTarget());
+}
+
+function todaySceneHtml(step, c) {
+  const convo = CONVERSATIONS[step.idx];
+  const shown = c.shown || 1;
+  const open = c.open || {};
+  const lines = convo.lines.slice(0, shown).map((l, j) => {
+    const fr = escapeHtml(getNative(l));
+    const en = escapeHtml(l.en || '');
+    if (l.who === 'them') {
+      return `<div class="today-line them" onclick="todayToggleLine(${j})">
+        <div class="today-line-row"><div class="fr">${fr}</div><button class="speak-btn" onclick="event.stopPropagation();todaySpeakLine(${j})" aria-label="Play">🔊</button></div>
+        ${open[j] ? `<div class="en">${en}</div>` : ''}</div>`;
+    }
+    return `<div class="today-line you" onclick="todayToggleLine(${j})">
+      <div class="en">${en}</div>
+      ${open[j] ? `<div class="today-line-row"><div class="fr">${fr}</div><button class="speak-btn" onclick="event.stopPropagation();todaySpeakLine(${j})" aria-label="Play">🔊</button></div>` : ''}</div>`;
+  }).join('');
+  const more = shown < convo.lines.length;
+  return `
+    <div class="today-pill">Scene</div>
+    <h3 class="today-scene-title">${escapeHtml(convo.title)}</h3>
+    <p class="subtitle">${escapeHtml(convo.scene || '')}</p>
+    <div class="today-lines">${lines}</div>
+    <div class="today-actions one"><button class="today-btn primary" onclick="${more ? 'todaySceneNext()' : 'todayNext()'}">${more ? 'Next line' : 'Finish'}</button></div>`;
+}
+
+function todayStep() { return todaySession && todaySession.steps[todaySession.i]; }
+function todaySpeak() {
+  const item = studyItem(todayStep()?.key);
+  if (item) speakWord(getSpeakWord(item), currentTarget());
+}
+function todaySpeakLine(j) {
+  const line = CONVERSATIONS[todayStep()?.idx]?.lines[j];
+  if (line) speakWord(getNative(line), currentTarget());
+}
+function todayToggleLine(j) {
+  const c = todaySession.cur;
+  c.open = c.open || {};
+  c.open[j] = !c.open[j];
+  saveTodaySession();
+  renderTodayView();
+}
+function todaySceneNext() {
+  todaySession.cur.shown = (todaySession.cur.shown || 1) + 1;
+  saveTodaySession();
+  renderTodayView(true);
+  document.querySelector('.today-step .today-actions')?.scrollIntoView({ block: 'nearest' });
+}
+function todayTally(kind, ok) {
+  const t = todaySession.tally[kind];
+  t[1]++;
+  if (ok) t[0]++;
+}
+function todayNext() {
+  todaySession.i++;
+  todaySession.cur = {};
+  saveTodaySession();
+  renderTodayView(true);
+}
+function todayReveal() {
+  todaySession.cur.revealed = true;
+  saveTodaySession();
+  renderTodayView();
+}
+function todayRecog(ok) {
+  const step = todayStep();
+  CLSRS.grade(srs, step.key, 'rec', ok, Date.now());
+  saveSrs();
+  todayTally('review', ok);
+  todayNext();
+}
+function todayPick(j) {
+  const s = todaySession, step = todayStep();
+  if (s.cur.answered) return;
+  const item = studyItem(step.key);
+  const ok = step.opts[j] === getBackWord(item);
+  s.cur.answered = true;
+  s.cur.choice = j;
+  CLSRS.grade(srs, step.key, 'rec', ok, Date.now());
+  saveSrs();
+  todayTally('listen', ok);
+  saveTodaySession();
+  renderTodayView();
+}
+function todayCheck() {
+  const s = todaySession, step = todayStep();
+  if (s.cur.answered) return;
+  const item = studyItem(step.key);
+  const typed = document.getElementById('today-input')?.value ?? s.cur.typed ?? '';
+  const g = CLSRS.gradeAnswer(typed, getFrontWord(item), { lang: currentTarget(), alts: item.alt });
+  Object.assign(s.cur, { answered: true, typed, ok: g.ok, nudge: g.nudge, expected: g.expected });
+  CLSRS.grade(srs, step.key, 'prod', g.ok, Date.now());
+  saveSrs();
+  todayTally(step.review ? 'review' : 'recall', g.ok);
+  saveTodaySession();
+  renderTodayView();
+}
+function todayEnter() {
+  if (todaySession.cur.answered) todayNext(); else todayCheck();
+}
+
+function renderTodayStart() {
+  const s = todaySession;
+  const now = Date.now();
+  const due = dueItemCount(now);
+  const fresh = Math.min(6, studyItems().filter(i => i.day !== 'saved' && CLSRS.isNew(srs, i.key)).length);
+  const inProgress = s && !s.finished;
+  const n = s ? s.steps.length - 1 : 0;
+  content.innerHTML = `
+    <div class="today">
+      <div class="today-head"><h2>Today</h2><div class="today-paris">${daysToParisLabel()}</div></div>
+      <div class="today-tiles">
+        ${todayTile(due, 'Due')}
+        ${todayTile(fresh, 'New')}
+        ${todayTile(state.streak, 'Streak')}
+      </div>
+      ${s && s.finished ? todayRecapHtml(s) : ''}
+      ${inProgress ? `<div class="today-actions one"><button class="today-btn primary" onclick="resumeToday()">Resume · ${s.i + 1}/${n}</button></div>` : ''}
+      <div class="today-actions">
+        <button class="today-btn ${inProgress || (s && s.finished) ? '' : 'primary'}" onclick="startToday('10')">${inProgress ? 'Restart · 10 min' : s && s.finished ? 'Again · 10 min' : 'Start · 10 min'}</button>
+        <button class="today-btn" onclick="startToday('3')">3 min</button>
+      </div>
+    </div>`;
+}
+
+function todayRecapHtml(s) {
+  const tl = s.tally;
+  const newWords = s.newKeys.map(k => studyItem(k)).filter(Boolean).map(i => escapeHtml(getFrontWord(i)));
+  const sceneStep = s.steps.find(st => st.t === 'scene');
+  const scene = sceneStep ? CONVERSATIONS[sceneStep.idx] : null;
+  const tomorrow = dueItemCount(CLSRS.addDays(Date.now(), 2));
+  return `
+    <div class="today-tiles four">
+      ${todayTile(`${tl.review[0]}/${tl.review[1]}`, 'Reviews')}
+      ${todayTile(s.newKeys.length, 'New')}
+      ${todayTile(`${tl.listen[0]}/${tl.listen[1]}`, 'Heard')}
+      ${todayTile(`${tl.recall[0]}/${tl.recall[1]}`, 'Typed')}
+    </div>
+    <ul class="today-recap">
+      ${newWords.length ? `<li><b>New</b> ${newWords.join(' · ')}</li>` : ''}
+      ${scene ? `<li><b>Scene</b> ${escapeHtml(scene.title)}</li>` : ''}
+      <li><b>Tomorrow</b> ${tomorrow} review${tomorrow === 1 ? '' : 's'}</li>
+      <li><b>Paris</b> ${daysToParisLabel()}</li>
+    </ul>`;
+}
+
+function renderTodaySummary() {
+  const s = todaySession;
+  if (!s.finished) {
+    s.finished = true;
+    srs.sessions = (srs.sessions || 0) + 1;
+    saveSrs();
+    saveTodaySession();
+    finishStreakDay();
+  }
+  content.innerHTML = `
+    <div class="today today-done">
+      <div class="today-head"><h2>Done for today</h2><div class="today-paris">🔥 ${state.streak}</div></div>
+      ${todayRecapHtml(s)}
+      <div class="today-actions one"><button class="today-btn primary" onclick="todayPaused=true;renderTodayView()">Back to Today</button></div>
+    </div>`;
+}
+
 // VIEW ROUTER
 // ============================================================
 // LESSON BANNER — per-day image above lesson content
@@ -3023,9 +3408,19 @@ function hideLessonBanner() {
   if (wrap) wrap.style.display = 'none';
 }
 
+let currentView = null;
 function setView(view) {
+  if (view === 'today' && !todaySupported()) view = 'lesson';
+  currentView = view;
+  toggleMoreSheet(false);
+  if (view !== 'quiz' && _quizKeyHandler) {
+    document.removeEventListener('keydown', _quizKeyHandler);
+    _quizKeyHandler = null;
+  }
   setActiveNav(view);
-  if (view === 'lesson') {
+  if (view === 'today') {
+    renderTodayView();
+  } else if (view === 'lesson') {
     renderLessonView(state.currentDay);
   } else {
     if (view === 'flashcards')    renderFlashcardView();
@@ -3039,6 +3434,15 @@ function setView(view) {
 }
 
 document.querySelectorAll('nav button').forEach(b => {
+  b.addEventListener('click', () => setView(b.dataset.view));
+});
+document.querySelectorAll('.bottom-nav button[data-bnav]').forEach(b => {
+  b.addEventListener('click', () => {
+    if (b.dataset.bnav === 'more') toggleMoreSheet();
+    else setView(b.dataset.view);
+  });
+});
+document.querySelectorAll('.more-sheet button[data-view]').forEach(b => {
   b.addEventListener('click', () => setView(b.dataset.view));
 });
 
@@ -3055,7 +3459,7 @@ const taglineEl  = document.getElementById('lang-tagline');
 if (subtitleEl) subtitleEl.textContent = currentPair().subtitle;
 if (taglineEl)  taglineEl.textContent  = currentPair().tagline;
 updateNavLabels();
-setView('lesson');
+setView(defaultView());
 
 // ============================================================
 // USER PROFILE — personalized phrases & greeting
