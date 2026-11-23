@@ -2734,6 +2734,7 @@ async function doTranslate() {
   const inp = document.getElementById('translate-input');
   const text = (inp?.value || '').trim();
   if (!text) return;
+  primeSpeech(); // inside the tap, before the await, so auto-play works on iOS
   translatorState.loading = true;
   translatorState.error = null;
   renderTranslatorView();
@@ -2803,47 +2804,102 @@ function showToast(msg) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2600);
 }
-// TTS audio cache so repeated taps don't re-fetch
-const ttsCache = {};
+// ── Speech ──────────────────────────────────────────────────
+// Web Speech for now. iOS drops speech that starts after an await, so speakWord
+// stays synchronous inside the tap. Stage 4 plugs static MP3s in through
+// getStaticAudioUrl(); until then it returns null and nothing hits the network.
+function getStaticAudioUrl(text, lang) { return null; }
+
+const voiceCache = {};
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices(); // starts the async voice load in Chrome/Safari
+  speechSynthesis.addEventListener?.('voiceschanged', () => {
+    Object.keys(voiceCache).forEach(k => delete voiceCache[k]);
+  });
+}
+
+// Best installed voice for a BCP-47 tag (e.g. fr-FR): exact region first,
+// premium/enhanced/natural over compact, never Eloquence/novelty voices.
+function pickVoice(speechLang) {
+  if (!('speechSynthesis' in window)) return null;
+  if (voiceCache[speechLang]) return voiceCache[speechLang];
+  const voices = speechSynthesis.getVoices() || [];
+  if (!voices.length) return null;
+  const norm = l => (l || '').replace('_', '-').toLowerCase();
+  const want = speechLang.toLowerCase();
+  const base = want.split('-')[0];
+  const exact = voices.filter(v => norm(v.lang) === want);
+  const pool = exact.length ? exact : voices.filter(v => norm(v.lang).split('-')[0] === base);
+  if (!pool.length) return null;
+  const score = v => {
+    const id = (v.name || '') + ' ' + (v.voiceURI || '');
+    let s = 0;
+    if (/premium/i.test(id)) s += 40;
+    if (/enhanced|natural|neural/i.test(id)) s += 30;
+    if (/google/i.test(id)) s += 10;
+    if (/eloquence|speech\.synthesis\.voice/i.test(id)) s -= 50;
+    if (v.default) s += 1;
+    return s;
+  };
+  const best = pool.slice().sort((a, b) => score(b) - score(a))[0];
+  voiceCache[speechLang] = best;
+  return best;
+}
+
+let speechPrimed = false;
+// Call synchronously from a tap before any await (e.g. Translate) so iOS lets
+// the later auto-play speak.
+function primeSpeech() {
+  if (speechPrimed || !('speechSynthesis' in window)) return;
+  speechPrimed = true;
+  const u = new SpeechSynthesisUtterance(' ');
+  u.volume = 0;
+  speechSynthesis.speak(u);
+}
+
+let currentUtterance = null; // held so Chrome doesn't GC it before onend
+function speakWithBrowser(text, lang, done) {
+  if (!('speechSynthesis' in window)) { done(); return; }
+  const speechLang = LANGS[lang]?.speechLang || 'en-US';
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = speechLang;
+  const voice = pickVoice(speechLang);
+  if (voice) u.voice = voice;
+  u.rate = 0.9;
+  u.onend = done;
+  u.onerror = done;
+  currentUtterance = u;
+  speechPrimed = true;
+  speechSynthesis.speak(u);
+}
 
 // langCode is optional — defaults to the target language of the current pair.
-async function speakWord(text, langCode) {
+function speakWord(text, langCode) {
   if (!text) return;
   const lang = langCode || currentTarget();
 
   const btns = document.querySelectorAll('.speak-btn');
   btns.forEach(b => b.classList.add('speaking'));
-  const done = () => btns.forEach(b => b.classList.remove('speaking'));
+  let finished = false;
+  const done = () => {
+    if (finished) return;
+    finished = true;
+    btns.forEach(b => b.classList.remove('speaking'));
+  };
+  setTimeout(done, Math.max(3000, text.length * 200)); // in case onend never fires
 
-  try {
-    const cacheKey = lang + ':' + text;
-    let audioUrl = ttsCache[cacheKey];
-    if (!audioUrl) {
-      const res = await fetch('/cunninglinguist/.netlify/functions/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, lang }),
-      });
-      if (!res.ok) throw new Error('TTS failed');
-      const blob = await res.blob();
-      audioUrl = URL.createObjectURL(blob);
-      ttsCache[cacheKey] = audioUrl;
-    }
-    const audio = new Audio(audioUrl);
+  const url = getStaticAudioUrl(text, lang);
+  if (url) {
+    const audio = new Audio(url);
     audio.onended = done;
-    audio.onerror = done;
-    audio.play();
-  } catch (e) {
-    console.warn('TTS failed, falling back to browser synthesis:', e);
-    done();
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = LANGS[lang]?.speechLang || 'en-US';
-      u.rate = 0.9;
-      speechSynthesis.speak(u);
+    const p = audio.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => speakWithBrowser(text, lang, done));
     }
+    return;
   }
+  speakWithBrowser(text, lang, done);
 }
 
 // LEATHER NOTEBOOK
@@ -2940,8 +2996,10 @@ function updateReviewBadge() {
 // LESSON BANNER — per-day image above lesson content
 // en-X pairs:    /assets/banners/{targetLang}/day-{nn}  (e.g. /assets/banners/fr/day-01)
 // cross pairs:   /assets/banners/{pairKey}/day-{nn}     (e.g. /assets/banners/it-fr/day-01)
-// Falls back gracefully if image doesn't exist yet.
+// Only folders/days listed in BANNER_DAYS have art; everything else hides
+// without a request. Served as 1000px JPEGs (*-1000.jpg); originals kept.
 // ============================================================
+const BANNER_DAYS = { fr: 30, es: 10 };
 function updateLessonBanner(dayNum) {
   const wrap = document.getElementById('lesson-banner-wrap');
   const img  = document.getElementById('lesson-banner-img');
@@ -2949,20 +3007,15 @@ function updateLessonBanner(dayNum) {
 
   const nn        = String(dayNum).padStart(2, '0');
   const folderKey = currentLang.startsWith('en-') ? currentPair().courseKey : currentLang;
-  const base      = `/cunninglinguist/assets/banners/${folderKey}/day-${nn}`;
+  if (!(dayNum >= 1 && dayNum <= (BANNER_DAYS[folderKey] || 0))) {
+    wrap.style.display = 'none';
+    return;
+  }
 
   img.style.opacity = '0';
-  // Try jpg first, fall back to png, then hide if neither exists
-  img.onerror = () => {
-    if (img.src.endsWith('.jpg')) {
-      img.src = base + '.png';
-    } else {
-      wrap.style.display = 'none';
-      img.src = '';
-    }
-  };
+  img.onerror = () => { wrap.style.display = 'none'; };
   img.onload = () => { wrap.style.display = 'block'; img.style.opacity = '1'; };
-  img.src = base + '.jpg';
+  img.src = `/cunninglinguist/assets/banners/${folderKey}/day-${nn}-1000.jpg`;
 }
 
 function hideLessonBanner() {
@@ -3116,16 +3169,22 @@ function showProfileModal() {
   overlay.style.display = 'flex';
 }
 
+const PROFILE_SKIP_KEY = 'cll_profile_skipped';
+// Any dismissal (Skip for now, ×, backdrop, Save) stops the first-visit prompt
+// from coming back; the profile button still opens it.
 function closeProfileModal() {
   const overlay = document.getElementById('profile-modal');
   if (overlay) overlay.style.display = 'none';
+  try { localStorage.setItem(PROFILE_SKIP_KEY, '1'); } catch (e) {}
 }
 
 // Init: show onboarding modal if first visit, else restore profile UI
 (function initProfile() {
   const profile = loadProfile();
+  let skipped = false;
+  try { skipped = localStorage.getItem(PROFILE_SKIP_KEY) === '1'; } catch (e) {}
   if (!profile) {
-    setTimeout(() => showProfileModal(), 1400);
+    if (!skipped) setTimeout(() => showProfileModal(), 1400);
   } else {
     updateProfileUI(profile);
   }
