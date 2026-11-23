@@ -172,3 +172,38 @@ Branch `paris-v2-stage5` (from `paris-v2-stage4` @ 8041a46). Committed locally, 
 
 ### Smoke test for Jimmy's go (NOT run; ~10 Sonnet 5.5 calls, est. ≤ $0.25, hard cap $1)
 Not written yet (step for the next builder): `scripts/smoke-converse.mjs --max-usd 1` should sign nothing in itself, call the deployed `/api/converse` with a token from `CLL_SMOKE_JWT`, run café v0 for ≤ 9 turns + 1 debrief, sum `[usd]` from each response's usage (add `usd` to the JSON responses or compute from returned usage) and stop before a call that would pass $1. Estimate: ~1.5k in + ~0.4k out per call ≈ $0.007 → 10 calls ≈ $0.07.
+
+## Stage 5 part 2 — finish (builder 2, 2026-11-23)
+
+Branch `paris-v2-stage5`, committed locally, NOT pushed. **No paid call was made** (no Anthropic, no Supabase, no Blobs; every test is mocked). The part-1 "Netlify env needed" and "Proposed alternative migration" notes above are SUPERSEDED by this entry: no service role key, no app_metadata, no migration.
+
+### Done
+- **netlify/lib/ai-guard.js (lead's change):** session = `GET <SUPABASE_URL>/auth/v1/user` with the user's bearer JWT + the public anon key (same values as js/supabase-sync.js); 401 when missing/invalid, 503 if Supabase auth is unreachable (auth never fails open). Daily caps in Netlify Blobs: store `cll-ai-usage`, key `<userId>:<YYYY-MM-DD>` (UTC), value `{converse, translate}`; **caps 60 converse / 100 translate** (`CAPS` at the top). Blobs unavailable (read or write) → call allowed, one `[cll-ai] {"quota_store":"unavailable"...}` log line, capped by an in-memory per-instance counter. `@netlify/blobs` loaded by dynamic import. All service-role / app_metadata / 503-until-key code removed. Converse responses now carry `usd` (list price of that call).
+- **package.json** (only `@netlify/blobs` 11.1.8, pinned; no `"type"` so js/*.js stay CommonJS-requirable) + package-lock.json; `node_modules/` in .gitignore. **.github/workflows/deploy.yml:** Node 20 → 22 (blobs needs ≥22.12) and `npm ci --no-audit --no-fund` before the deploy step.
+- **Talk view (js/talk.js, new):** More → Talk (2nd full-width row) and a Talk tab in the desktop nav (en-fr only; hidden + unreachable on other pairs). Scene list (8 equal cards), Scripted / AI partner (AI asks to sign in when signed out). Scene: line hidden, Repeat / Slower / Hint (Hint 1 = line FR+EN, Hint 2 = a reply to try), `lang="fr"` input + Say, audio inside the tap. Debrief: Done / Turns / Repeats asked / Hints tiles, notes, corrections, full transcript, Replay (next variant = changed fact) / Scenes. Corrections → `addReviewCard` (known item: prod card graded as a miss; else saved `source:'roleplay'` + introduced to SRS now). AI mode: `cllSync.getAccessToken()` (new) → POST `/cunninglinguist/api/converse`; done or 12 turns → debrief call; any error → toast + Continue scripted. Today's summary gets a scene-of-the-day button (`talkFromToday`).
+- **Translator:** bearer token from `cllSync.getAccessToken()`; signed out → Sign in button, no call; EN→FR / FR→EN toggle (`dir:'heard'`, meaning shown large, French below, saved as `{word: French, en: meaning}`); recent items keep the full result and reopen with no request; error text escaped; saved items introduced to SRS immediately; auto-play guard (a null `lastResult` threw after a direction switch).
+- **Audio:** role-play NPC lines in `scripts/gen-fr-audio.mjs` collection. Dry run now: **848 texts (roleplay 65), 1,696 files, 38,826 chars, est. $1.13** (was 783 / 1,566 / $1.00); still under the TTS go's proposed $2 cap.
+- **Smoke script (written, NOT run):** `scripts/smoke-converse.mjs`.
+
+### Tests (all local, no network)
+- `node tests/ai-functions.mjs` 27/27 (401 no token / bad JWT, 403 origin, 405, 503 auth down, caps 60/100, key format + per-kind increment, 429 at cap with no Anthropic call, yesterday resets, Blobs unavailable (fake + real `@netlify/blobs` with no context) allowed + logged + memory-capped, write failure, request shapes (Sonnet 5.5 + fallbacks default / Haiku 5.5 without), structured parsing, refusal/max_tokens/bad JSON/529, unknown scene 400 with no quota taken, logs never contain the user's text, full user id, email or token, no service-role/app_metadata references).
+- `node tests/scenes-fr.mjs` 13/13. `srs-sim` 15/15, `content-fr` 18/18, `audio-fr` 10/10.
+- `node tests/browser-stage5.cjs` ALL OK (43 checks; muted headless Chrome 390×844 + 1280, speech stub, outside requests blocked): café v0 end to end + Replay → v1 with zero `/api` requests and 0 console errors; Repeat/Slower/Hint equal 3-up ≥44px; scene cards, mode buttons, debrief tiles, Replay/Scenes equal; no sideways scroll; AI mode against intercepted `/api/converse` (bearer token, turns, debrief, corrections into review, error → Continue scripted); translator (signed-out no call, toggle equal, `dir:'heard'`, recent tap no request, escaped `<b>`/`<img onerror>`, heard save into SRS); en-pt hides Talk. Serve: `mkdir -p <d> && ln -sfn <repo> <d>/cunninglinguist && python3 -m http.server 8775 --bind 127.0.0.1 --directory <d>`. Screenshots in scratchpad `s5shots/`.
+- Stage 3 browser ALL OK; stage 4 browser ALL OK (its More-sheet check now expects Listen + Talk full rows, 8 buttons).
+
+### Netlify env (site cunninglinguist)
+- `ANTHROPIC_API_KEY` (existing; without it both AI endpoints answer 503 `config`, after the auth check).
+- Nothing new: Blobs needs no env var. Optional `SUPABASE_URL` / `SUPABASE_ANON_KEY` default to the public CCC values. The CAP env vars from part 1 are gone (constants).
+
+### Unverified
+- Blobs on the live site (first real deploy with `npm ci`): confirm the function log shows no `quota_store unavailable` lines after a translate.
+- netlify-cli is expected to skip `node_modules/` when publishing `--dir=.` (its default deploy filter); check the deploy's file count didn't jump.
+- Real iPhone: speech after the AI await (primed in the tap), French dictation into the Talk input.
+- The Today summary button was exercised through `talkFromToday()`, not by finishing a Today session.
+
+### Smoke test for Jimmy's go (NOT run): ~10 Sonnet 5.5 calls, worst case $0.23, hard cap $1 in code
+`CLL_SMOKE_JWT=<access token of a signed-in test account> node scripts/smoke-converse.mjs --max-usd 1`
+(refuses without `--max-usd` or the JWT; `--dry-run` prints the plan; stops before any call whose worst case would pass the cap).
+
+### Next step (lead)
+Independent check (the five node tests, `browser-stage5.cjs`, stage 3/4 browser regressions as above), `jj-gh-spend`, push `paris-v2-stage5` once, PR, merge, confirm the deploy (Actions run green incl. `npm ci`; translator works signed in; Talk visible under More), then ask Jimmy for both paid gos together: TTS ($1.13 est., cap $2) and the converse smoke ($1 cap).
