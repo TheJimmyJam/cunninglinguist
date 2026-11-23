@@ -257,7 +257,7 @@ nav_lessons:'Lessons', nav_more:'More',
     lesson_cultural_tip:'Cultural Tip', lesson_tap_reveal:'tap to reveal',
     lesson_mark_complete:'Mark Day Complete', lesson_completed:'✓ Completed',
     lesson_undo:'↩ Undo', day_label:'Day',
-    nav_yesterday:'← Yesterday', nav_tomorrow:'→ Tomorrow', nav_today:'Today',
+    nav_yesterday:'← Yesterday', nav_tomorrow:'→ Tomorrow', nav_today:'Today', nav_listen:'Listen',
     tag_mastered:'★ Mastered', tag_done:'✓ Done',
     flash_subtitle:'Drill the vocab from your completed days.',
     flash_deck:'Deck', flash_days_seen:'Days I\'ve seen',
@@ -1351,7 +1351,7 @@ function updateNavLabels() {
     today:'nav_today',
     lesson: todaySupported() ? 'nav_lessons' : 'nav_lesson', flashcards:'nav_flashcards', quiz:'nav_quiz',
     all:'nav_all', conversations:'nav_conversations',
-    translator:'nav_translator', notebook:'nav_notebook', progress:'nav_progress',
+    translator:'nav_translator', notebook:'nav_notebook', progress:'nav_progress', listen:'nav_listen',
   };
   document.querySelectorAll('nav button[data-view]').forEach(btn => {
     const key = navMap[btn.dataset.view];
@@ -1362,6 +1362,8 @@ function updateNavLabels() {
   });
   const topToday = document.querySelector('nav button[data-view="today"]');
   if (topToday) topToday.style.display = todaySupported() ? '' : 'none';
+  document.querySelectorAll('nav button[data-view="listen"], .more-sheet button[data-view="listen"]')
+    .forEach(b => { b.style.display = listenSupported() ? '' : 'none'; });
   // Phone bottom bar: Today (the lesson on pairs without Today), Flashcards, Translator, More
   document.querySelectorAll('.bottom-nav button[data-bnav]').forEach(btn => {
     const b = btn.dataset.bnav;
@@ -2867,10 +2869,31 @@ function showToast(msg, duration = 2600) {
   setTimeout(() => t.remove(), duration);
 }
 // ── Speech ──────────────────────────────────────────────────
-// Web Speech for now. iOS drops speech that starts after an await, so speakWord
-// stays synchronous inside the tap. Stage 4 plugs static MP3s in through
-// getStaticAudioUrl(); until then it returns null and nothing hits the network.
-function getStaticAudioUrl(text, lang) { return null; }
+// Static MP3s (audio/<lang>/, keyed by CLAUDIO.audioHash in js/audio.js) when
+// the manifest lists the line, otherwise Web Speech. The manifest is fetched
+// once at startup; a line it doesn't list is never requested (no 404s). iOS
+// drops audio that starts after an await, so speakWord stays synchronous in the
+// tap: the Audio element is created and play() called in the same handler.
+const AUDIO_BASE = { fr: '/cunninglinguist/audio/fr/' };
+const audioManifests = {}; // lang -> manifest object (undefined = not asked, null = loading)
+function loadAudioManifest(lang) {
+  if (!AUDIO_BASE[lang] || audioManifests[lang] !== undefined || typeof CLAUDIO === 'undefined') return;
+  audioManifests[lang] = null;
+  fetch(AUDIO_BASE[lang] + 'manifest.json', { cache: 'no-cache' })
+    .then(r => (r.ok ? r.json() : {}))
+    .then(m => { audioManifests[lang] = m && typeof m === 'object' ? m : {}; })
+    .catch(() => { audioManifests[lang] = {}; });
+}
+// getStaticAudioUrl(text, { lang, slow }) -> URL or null (lang may be passed as a string).
+function getStaticAudioUrl(text, opts) {
+  const o = typeof opts === 'string' ? { lang: opts } : (opts || {});
+  const lang = o.lang || currentTarget();
+  const m = audioManifests[lang];
+  if (m === undefined) loadAudioManifest(lang);
+  if (!m || typeof CLAUDIO === 'undefined') return null;
+  return CLAUDIO.audioUrl(m, text, !!o.slow, AUDIO_BASE[lang]);
+}
+loadAudioManifest(currentTarget());
 
 const voiceCache = {};
 if ('speechSynthesis' in window) {
@@ -2920,7 +2943,7 @@ function primeSpeech() {
 }
 
 let currentUtterance = null; // held so Chrome doesn't GC it before onend
-function speakWithBrowser(text, lang, done) {
+function speakWithBrowser(text, lang, done, rate) {
   if (!('speechSynthesis' in window)) { done(); return; }
   const speechLang = LANGS[lang]?.speechLang || 'en-US';
   speechSynthesis.cancel();
@@ -2928,7 +2951,7 @@ function speakWithBrowser(text, lang, done) {
   u.lang = speechLang;
   const voice = pickVoice(speechLang);
   if (voice) u.voice = voice;
-  u.rate = 0.9;
+  u.rate = rate || 0.9;
   u.onend = done;
   u.onerror = done;
   currentUtterance = u;
@@ -2937,9 +2960,13 @@ function speakWithBrowser(text, lang, done) {
 }
 
 // langCode is optional — defaults to the target language of the current pair.
-function speakWord(text, langCode) {
+// opts.slow: the .slow.mp3, or Web Speech at rate 0.7.
+let currentAudio = null;
+function speakWord(text, langCode, opts) {
   if (!text) return;
   const lang = langCode || currentTarget();
+  const slow = !!(opts && opts.slow);
+  const rate = slow ? 0.7 : 0.9;
 
   const btns = document.querySelectorAll('.speak-btn');
   btns.forEach(b => b.classList.add('speaking'));
@@ -2949,19 +2976,29 @@ function speakWord(text, langCode) {
     finished = true;
     btns.forEach(b => b.classList.remove('speaking'));
   };
-  setTimeout(done, Math.max(3000, text.length * 200)); // in case onend never fires
+  setTimeout(done, Math.max(3000, text.length * (slow ? 300 : 200))); // in case onend never fires
 
-  const url = getStaticAudioUrl(text, lang);
+  if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
+  const url = getStaticAudioUrl(text, { lang, slow });
   if (url) {
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
     const audio = new Audio(url);
+    currentAudio = audio;
+    let fellBack = false;
+    const fallback = () => {
+      if (fellBack || currentAudio !== audio) return; // replaced by a newer tap: stay quiet
+      fellBack = true;
+      currentAudio = null;
+      speakWithBrowser(text, lang, done, rate);
+    };
     audio.onended = done;
-    const p = audio.play();
-    if (p && typeof p.catch === 'function') {
-      p.catch(() => speakWithBrowser(text, lang, done));
-    }
+    audio.onerror = fallback;
+    let p;
+    try { p = audio.play(); } catch (e) { fallback(); return; }
+    if (p && typeof p.catch === 'function') p.catch(fallback);
     return;
   }
-  speakWithBrowser(text, lang, done);
+  speakWithBrowser(text, lang, done, rate);
 }
 
 // LEATHER NOTEBOOK
@@ -3140,6 +3177,13 @@ function buildTodaySession(mode) {
     const others = shuffled(items.filter(o => o.key !== i.key && o.kind === i.kind)).map(cleanBack);
     steps.push({ t: 'listen', key: i.key, opts: shuffled(CLSRS.uniqueOptions(cleanBack(i), others, 4)) });
   });
+  // Two numbers by ear (a price and a time), 10-min session only.
+  if (!short && typeof CLAUDIO !== 'undefined' && typeof listenQuestion === 'function') {
+    ['price', 'time'].forEach(k => {
+      const pool = CLAUDIO.listenItems().filter(g => g.kind === k);
+      steps.push({ t: 'hear', q: listenQuestion(pool[Math.floor(Math.random() * pool.length)], 'pick') });
+    });
+  }
   shuffled(fresh.filter(i => !isHeardOnly(i))).forEach(i => steps.push({ t: 'recall', key: i.key }));
   if (!short && CONVERSATIONS.length) steps.push({ t: 'scene', idx: (srs.sessions || 0) % CONVERSATIONS.length });
   steps.push({ t: 'done' });
@@ -3203,6 +3247,9 @@ function renderTodayView(fromTap) {
     body = todaySceneHtml(step, s.cur);
     const line = CONVERSATIONS[step.idx]?.lines[(s.cur.shown || 1) - 1];
     if (line && line.who === 'them') speakNow = getNative(line);
+  } else if (step.t === 'hear') {
+    body = `<div class="today-pill">Listen · ${LISTEN_KIND_LABEL[step.q.kind] || ''}</div>${listenQHtml(step.q, s.cur, 'today')}`;
+    if (!s.cur.answered && !s.cur.played) speakNow = step.q.fr;
   } else {
     const item = studyItem(step.key);
     if (!item) { s.i++; s.cur = {}; saveTodaySession(); return renderTodayView(fromTap); }
@@ -3229,21 +3276,8 @@ function renderTodayView(fromTap) {
           ? `<div class="today-actions"><button class="today-btn bad" onclick="todayRecog(false)">Missed</button><button class="today-btn good" onclick="todayRecog(true)">Got it</button></div>`
           : `<div class="today-actions one"><button class="today-btn primary" onclick="todayReveal()">Show</button></div>`}`;
     } else if (step.t === 'listen') {
-      const correct = cleanBack(item), correctOld = getBackWord(item);
-      body = `
-        <div class="today-pill">Listen</div>
-        <div class="today-audio"><button class="speak-btn today-speak today-speak-lg" onclick="todaySpeak()" aria-label="Play">🔊</button></div>
-        ${c.answered ? `<div class="today-card"><div class="today-fr">${fr}</div>${ipa ? `<div class="today-ipa">${ipa}</div>` : ''}</div>` : ''}
-        <div class="today-options">
-          ${step.opts.map((o, j) => {
-            let cls = 'today-btn today-option';
-            if (c.answered && (o === correct || o === correctOld)) cls += ' correct';
-            else if (c.answered && j === c.choice) cls += ' wrong';
-            return `<button class="${cls}" onclick="todayPick(${j})" ${c.answered ? 'disabled' : ''}>${escapeHtml(o)}</button>`;
-          }).join('')}
-        </div>
-        ${c.answered ? `<div class="today-actions one"><button class="today-btn primary" onclick="todayNext()">Continue</button></div>` : ''}`;
-      if (!c.answered) speakNow = getSpeakWord(item);
+      body = `<div class="today-pill">Listen</div>${listenQHtml(todayListenQ(), c, 'today')}`;
+      if (!c.answered && !c.played) speakNow = getSpeakWord(item);
     } else if (step.t === 'recall') {
       body = `
         <div class="today-pill">${step.review ? 'Review · ' : ''}In French</div>
@@ -3337,19 +3371,7 @@ function todayRecog(ok) {
   todayTally('review', ok);
   todayNext();
 }
-function todayPick(j) {
-  const s = todaySession, step = todayStep();
-  if (s.cur.answered) return;
-  const item = studyItem(step.key);
-  const ok = step.opts[j] === cleanBack(item) || step.opts[j] === getBackWord(item);
-  s.cur.answered = true;
-  s.cur.choice = j;
-  CLSRS.grade(srs, step.key, 'rec', ok, Date.now());
-  saveSrs();
-  todayTally('listen', ok);
-  saveTodaySession();
-  renderTodayView();
-}
+function todayPick(j) { lqPick('today', j); }
 function todayCheck() {
   const s = todaySession, step = todayStep();
   if (s.cur.answered) return;
@@ -3429,6 +3451,199 @@ function renderTodaySummary() {
     </div>`;
 }
 
+// ============================================================
+// LISTEN — hear it at native speed, then pick or type the meaning.
+// Shared by the Listen drill (More → Listen) and Today's listen steps.
+// Content: prices, times, platforms, métro lines, dates (CLAUDIO.listenItems,
+// generated French) and the heard:true staff lines. Answers that map to a
+// study item grade its recognition card; showing the text first counts as a
+// miss for the review card.
+// ============================================================
+const LISTEN_PAIRS = ['en-fr'];
+function listenSupported() { return LISTEN_PAIRS.includes(currentLang) && typeof CLAUDIO !== 'undefined'; }
+const LISTEN_KIND_LABEL = { price: 'Price', time: 'Time', platform: 'Platform', line: 'Métro line', date: 'Date', staff: 'Staff', item: '' };
+const LISTEN_PLACEHOLDER = { price: '€ 6.50', time: '17:45', platform: 'Platform number', line: 'Line number' };
+
+// A generated item (CLAUDIO.listenItems) as a question; mode 'pick' forces choices.
+function listenQuestion(g, mode) {
+  const answer = mode || g.answer;
+  const mapped = typeof studyItem === 'function' ? studyItem(CLSRS.itemKey(g.fr)) : null;
+  const q = { fr: g.fr, en: g.en, kind: g.kind, value: g.value, answer, key: mapped ? mapped.key : null };
+  if (answer === 'pick') q.opts = shuffled([g.en].concat(CLAUDIO.distractors(g, 3).map(d => d.en)));
+  return q;
+}
+// A study item (heard staff line, phrase) as a pick question.
+function listenItemQuestion(i, pool) {
+  const others = shuffled(pool.filter(o => o.key !== i.key)).map(cleanBack);
+  return { fr: getSpeakWord(i), en: cleanBack(i), alt: getBackWord(i), kind: i.heard ? 'staff' : 'item', answer: 'pick', key: i.key,
+    opts: shuffled(CLSRS.uniqueOptions(cleanBack(i), others, 4)) };
+}
+function todayListenQ() {
+  const step = todayStep();
+  if (step.t === 'hear') return step.q;
+  const item = studyItem(step.key);
+  return { fr: getSpeakWord(item), en: cleanBack(item), alt: getBackWord(item), kind: 'item', answer: 'pick', key: step.key, opts: step.opts };
+}
+
+function listenQHtml(q, c, ns) {
+  const shown = c.shown || c.answered;
+  const controls = `
+    <div class="listen-controls">
+      <button class="today-btn listen-ctl" onclick="lqPlay('${ns}',false)">🔊 Repeat</button>
+      <button class="today-btn listen-ctl" onclick="lqPlay('${ns}',true)">🐢 Slower</button>
+      <button class="today-btn listen-ctl" onclick="lqShow('${ns}')" ${shown ? 'disabled' : ''}>Show text</button>
+    </div>`;
+  const text = shown ? `<div class="today-card listen-card"><div class="today-fr listen-fr">${escapeHtml(q.fr)}</div></div>` : '';
+  let answer;
+  if (q.answer === 'pick') {
+    answer = `<div class="today-options">${q.opts.map((o, j) => {
+      let cls = 'today-btn today-option';
+      if (c.answered && (o === q.en || o === q.alt)) cls += ' correct';
+      else if (c.answered && j === c.choice) cls += ' wrong';
+      return `<button class="${cls}" onclick="lqPick('${ns}',${j})" ${c.answered ? 'disabled' : ''}>${escapeHtml(o)}</button>`;
+    }).join('')}</div>`;
+  } else {
+    answer = `
+      <input id="listen-input" class="today-input" type="text" inputmode="${q.kind === 'time' ? 'text' : 'decimal'}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+        placeholder="${escapeHtml(LISTEN_PLACEHOLDER[q.kind] || '')}" value="${escapeHtml(c.typed || '')}" ${c.answered ? 'readonly' : ''}
+        oninput="lqCtx('${ns}').c.typed=this.value"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();${c.answered ? `lqNext('${ns}')` : `lqCheck('${ns}')`};}">
+      ${c.answered ? '' : `<div class="today-actions one"><button class="today-btn primary" onclick="lqCheck('${ns}')">Check</button></div>`}`;
+  }
+  const feedback = c.answered ? `
+    <div class="today-feedback ${c.ok ? 'ok' : 'no'}">${c.ok ? '✓' : '✗'} ${escapeHtml(q.en)}</div>
+    ${c.ok && c.peeked && q.key ? '<div class="accent-nudge">Seen with the text, so it comes back sooner.</div>' : ''}
+    <div class="today-actions one"><button class="today-btn primary" onclick="lqNext('${ns}')">Continue</button></div>` : '';
+  return `${controls}${text}${answer}${feedback}`;
+}
+
+function lqCtx(ns) {
+  if (ns === 'today') return { q: todayListenQ(), c: todaySession.cur, save: saveTodaySession, render: renderTodayView };
+  return { q: listenSession.qs[listenSession.i], c: listenSession.cur, save: () => {}, render: renderListenView };
+}
+function lqPlay(ns, slow) {
+  const x = lqCtx(ns);
+  x.c.played = true;
+  speakWord(x.q.fr, 'fr', { slow });
+}
+function lqShow(ns) {
+  const x = lqCtx(ns);
+  if (!x.c.answered) x.c.peeked = true;
+  x.c.shown = true;
+  x.save();
+  x.render();
+}
+function lqPick(ns, j) {
+  const x = lqCtx(ns);
+  if (x.c.answered) return;
+  const o = x.q.opts[j];
+  lqFinish(ns, x, o === x.q.en || (x.q.alt && o === x.q.alt), { choice: j });
+}
+function lqCheck(ns) {
+  const x = lqCtx(ns);
+  if (x.c.answered) return;
+  const typed = document.getElementById('listen-input')?.value ?? x.c.typed ?? '';
+  if (!String(typed).trim()) { document.getElementById('listen-input')?.focus(); return; }
+  lqFinish(ns, x, CLAUDIO.checkTyped(x.q, typed), { typed });
+}
+function lqFinish(ns, x, ok, extra) {
+  Object.assign(x.c, extra, { answered: true, ok: !!ok });
+  const item = x.q.key ? studyItem(x.q.key) : null;
+  if (item) {
+    const now = Date.now();
+    if (CLSRS.isNew(srs, item.key)) CLSRS.introduce(srs, item.key, now, isHeardOnly(item));
+    CLSRS.grade(srs, item.key, 'rec', !!ok && !x.c.peeked, now);
+    saveSrs();
+  }
+  if (ns === 'today') todayTally('listen', !!ok);
+  else listenSession.results.push({ kind: x.q.kind, ok: !!ok, fr: x.q.fr, en: x.q.en });
+  x.save();
+  x.render();
+}
+function lqNext(ns) {
+  if (ns === 'today') { todayNext(); return; }
+  listenSession.i++;
+  listenSession.cur = {};
+  renderListenView(true);
+}
+
+// ── Listen drill ──
+let listenSession = null; // { mode, qs, i, cur, results } | null on the start screen
+function listenLastKey() { return 'cll_listen_last_' + currentLang; }
+function buildListenSession(mode) {
+  const gen = CLAUDIO.listenItems();
+  const take = (kind, n) => shuffled(gen.filter(g => g.kind === kind)).slice(0, n);
+  let picks = [].concat(take('price', 3), take('time', 2), shuffled(take('platform', 1).concat(take('line', 1))).slice(0, 1), take('date', 1));
+  const qs = picks.map(g => listenQuestion(g));
+  const items = studyItems();
+  const heard = items.filter(i => i.heard);
+  const want = mode === 'numbers' ? 0 : 3;
+  shuffled(heard).slice(0, want).forEach(i => qs.push(listenItemQuestion(i, heard.length >= 4 ? heard : items.filter(o => o.kind === i.kind))));
+  while (qs.length < 10) qs.push(listenQuestion(take('price', 1)[0]));
+  return { mode, qs: shuffled(qs), i: 0, cur: {}, results: [] };
+}
+function startListen(mode) {
+  listenSession = buildListenSession(mode);
+  renderListenView(true);
+}
+function stopListen() { listenSession = null; renderListenView(); }
+
+function renderListenView(fromTap) {
+  if (!listenSupported()) { setView(defaultView()); return; }
+  const ls = listenSession;
+  if (!ls) {
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem(listenLastKey()) || 'null'); } catch (e) {}
+    content.innerHTML = `
+      <div class="today listen">
+        <div class="today-head"><h2>Listen</h2><div class="today-paris">${last ? `Last ${last.right}/${last.n}` : ''}</div></div>
+        <div class="today-actions">
+          <button class="today-btn primary" onclick="startListen('mixed')">Start · 10</button>
+          <button class="today-btn" onclick="startListen('numbers')">Numbers only</button>
+        </div>
+      </div>`;
+    return;
+  }
+  const n = ls.qs.length;
+  if (ls.i >= n) {
+    const right = ls.results.filter(r => r.ok).length;
+    const nums = ls.results.filter(r => r.kind !== 'staff' && r.kind !== 'item');
+    try { localStorage.setItem(listenLastKey(), JSON.stringify({ right, n, at: Date.now() })); } catch (e) {}
+    const missed = ls.results.filter(r => !r.ok);
+    content.innerHTML = `
+      <div class="today listen today-done">
+        <div class="today-head"><h2>Listen</h2><div class="today-paris">${daysToParisLabel()}</div></div>
+        <div class="today-tiles two">
+          ${todayTile(`${right}/${n}`, 'Right')}
+          ${todayTile(`${nums.filter(r => r.ok).length}/${nums.length}`, 'Numbers')}
+        </div>
+        ${missed.length ? `<ul class="today-recap">${missed.map(r => `<li><b>${escapeHtml(r.en)}</b> ${escapeHtml(r.fr)}</li>`).join('')}</ul>` : ''}
+        <div class="today-actions">
+          <button class="today-btn primary" onclick="startListen('${ls.mode}')">Again</button>
+          <button class="today-btn" onclick="stopListen()">Done</button>
+        </div>
+      </div>`;
+    return;
+  }
+  const q = ls.qs[ls.i];
+  content.innerHTML = `
+    <div class="today listen">
+      <div class="today-bar">
+        <button class="today-x" onclick="stopListen()" aria-label="Stop">×</button>
+        <div class="today-progress"><span style="width:${Math.round(ls.i / n * 100)}%"></span></div>
+        <div class="today-count">${ls.i + 1}/${n}</div>
+      </div>
+      <div class="today-step">
+        <div class="today-pill">Listen · ${LISTEN_KIND_LABEL[q.kind] || ''}</div>
+        ${listenQHtml(q, ls.cur, 'drill')}
+      </div>
+    </div>`;
+  const inp = document.getElementById('listen-input');
+  if (inp && !ls.cur.answered && !fromTap) inp.focus({ preventScroll: true });
+  // Native speed first, inside the tap that got here (Start / Continue).
+  if (fromTap && !ls.cur.answered) { ls.cur.played = true; speakWord(q.fr, 'fr'); }
+}
+
 // VIEW ROUTER
 // ============================================================
 // LESSON BANNER — per-day image above lesson content
@@ -3464,6 +3679,7 @@ function hideLessonBanner() {
 let currentView = null;
 function setView(view) {
   if (view === 'today' && !todaySupported()) view = 'lesson';
+  if (view === 'listen' && !listenSupported()) view = defaultView();
   currentView = view;
   toggleMoreSheet(false);
   if (view !== 'quiz' && _quizKeyHandler) {
@@ -3483,6 +3699,7 @@ function setView(view) {
     else if (view === 'translator')    renderTranslatorView();
     else if (view === 'progress')      renderProgressView();
     else if (view === 'notebook')      renderNotebookView();
+    else if (view === 'listen')        renderListenView();
   }
 }
 
