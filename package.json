@@ -1,0 +1,8 @@
+{
+  "name": "cunning-linguist",
+  "private": true,
+  "description": "Netlify functions dependencies (the site itself is static).",
+  "dependencies": {
+    "@netlify/blobs": "11.1.8"
+  }
+}

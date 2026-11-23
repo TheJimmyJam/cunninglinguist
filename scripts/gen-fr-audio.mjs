@@ -46,6 +46,7 @@ export function collectTexts() {
   COURSE.forEach(d => ['paris', 'vocab', 'phrases'].forEach(k => (d[k] || []).forEach(v => texts.push({ text: v.fr, from: k }))));
   CONVOS.forEach(c => (c.lines || []).forEach(l => texts.push({ text: l.fr, from: 'scene' })));
   A.listenItems().forEach(i => texts.push({ text: i.fr, from: 'listen-' + i.kind }));
+  require(join(root, 'js/scenes-fr.js')).allNpcLines().forEach(t => texts.push({ text: t, from: 'roleplay' }));
   const byHash = new Map();
   for (const t of texts) {
     const norm = A.normText(t.text);

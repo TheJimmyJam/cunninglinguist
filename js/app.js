@@ -1364,6 +1364,8 @@ function updateNavLabels() {
   if (topToday) topToday.style.display = todaySupported() ? '' : 'none';
   document.querySelectorAll('nav button[data-view="listen"], .more-sheet button[data-view="listen"]')
     .forEach(b => { b.style.display = listenSupported() ? '' : 'none'; });
+  document.querySelectorAll('nav button[data-view="talk"], .more-sheet button[data-view="talk"]')
+    .forEach(b => { b.style.display = typeof talkSupported === 'function' && talkSupported() ? '' : 'none'; });
   // Phone bottom bar: Today (the lesson on pairs without Today), Flashcards, Translator, More
   document.querySelectorAll('.bottom-nav button[data-bnav]').forEach(btn => {
     const b = btn.dataset.bnav;
@@ -1726,6 +1728,7 @@ function saveTranslationCard(translation) {
   }
   state.savedVocab.unshift(card);
   saveState();
+  if (todaySupported()) { CLSRS.introduce(srs, studyKey(card), Date.now()); saveSrs(); } // into review now
   refreshStats();
   window.cllSync?.pushTranslation(currentLang, card);
   return true;
@@ -2700,7 +2703,14 @@ function renderProgressView() {
 }
 
 // TRANSLATOR
-let translatorState = { lastResult: null, recent: loadRecent(), loading: false, error: null };
+let translatorState = { lastResult: null, recent: loadRecent(), loading: false, error: null, dir: 'to', needAuth: false };
+function translatorSignedIn() { return !!window.cllSync?.getUser?.(); }
+function setTranslatorDir(d) {
+  translatorState.dir = d === 'heard' ? 'heard' : 'to';
+  translatorState.lastResult = null;
+  translatorState.error = null;
+  renderTranslatorView();
+}
 function loadRecent() {
   try { return JSON.parse(localStorage.getItem(getRecentKey()) || '[]'); }
   catch { return []; }
@@ -2714,23 +2724,33 @@ function renderTranslatorView() {
   const err = translatorState.error;
   const recent = translatorState.recent;
   const pair = currentPair();
+  const heard = translatorState.dir === 'heard';
+  const src = currentSource().toUpperCase(), tgt = currentTarget().toUpperCase();
+  const needAuth = translatorState.needAuth || !translatorSignedIn();
+  const shown = r && r.dir === 'heard' ? (r.meaning || r.word) : r?.word;
   content.innerHTML = `
     <h2>${t('trans_title')}</h2>
     <p class="subtitle">${isCrossPair() ? t('trans_subtitle_cross', LANGS[currentSource()].label, LANGS[currentTarget()].label) : pair.translatorSubtitle}</p>
+    <div class="translator-dir">
+      <button type="button" class="${heard ? '' : 'active'}" onclick="setTranslatorDir('to')">${src} → ${tgt}</button>
+      <button type="button" class="${heard ? 'active' : ''}" onclick="setTranslatorDir('heard')">${tgt} → ${src}</button>
+    </div>
     <form class="translator-form" onsubmit="event.preventDefault();doTranslate()">
-      <input id="translate-input" type="text" placeholder="${pair.inputPlaceholder}" autofocus
+      <input id="translate-input" type="text" placeholder="${heard ? '' : pair.inputPlaceholder}" ${heard ? `lang="${currentTarget()}"` : ''} autofocus
              value="${(r?.input || '').replace(/"/g, '&quot;')}">
       <button id="translate-btn" type="submit" ${translatorState.loading?'disabled':''}>
         ${translatorState.loading ? `<span class="loader"></span>${t('trans_loading')}` : t('trans_btn')}
       </button>
     </form>
 
-    ${err ? `<div class="translator-error">${err}</div>` : ''}
+    ${needAuth ? `<div class="translator-auth"><button type="button" class="save-btn" onclick="window.cllSync?.showAuthModal?.()">Sign in</button></div>` : ''}
+    ${err ? `<div class="translator-error">${escapeHtml(err)}</div>` : ''}
 
     ${r ? `
       <div class="translator-result">
         ${r.gender ? `<span class="gender-tag">${r.gender === 'm' ? t('trans_masculine') : r.gender === 'f' ? t('trans_feminine') : r.gender}</span>` : ''}
-        <div class="french-word">${escapeHtml(r.word)}</div>
+        <div class="french-word">${escapeHtml(shown)}</div>
+        ${r.dir === 'heard' && r.meaning ? `<div class="heard-word">${escapeHtml(r.word)}</div>` : ''}
         ${r.ipa ? `<div class="ipa">${escapeHtml(r.ipa)}</div>` : ''}
         ${r.phonetic ? `<div class="phonetic">${escapeHtml(r.phonetic)}</div>` : ''}
         <div class="translator-actions">
@@ -2776,7 +2796,7 @@ ${t('trans_hear')}
         ${recent.map((item, i) => `
           <div class="recent-item" onclick="loadRecentTranslation(${i})">
             <div class="input-text">${escapeHtml(item.input)}</div>
-            <div class="output-text">→ ${escapeHtml(item.word || item.french)}</div>
+            <div class="output-text">→ ${escapeHtml(item.dir === 'heard' ? (item.result?.meaning || item.word) : (item.word || item.french))}</div>
           </div>
         `).join('')}
       </div>
@@ -2798,26 +2818,38 @@ async function doTranslate() {
   const text = (inp?.value || '').trim();
   if (!text || translatorState.loading) return;
   primeSpeech(); // inside the tap, before the await, so auto-play works on iOS
+  if (!translatorSignedIn()) {
+    translatorState.needAuth = true;
+    renderTranslatorView();
+    window.cllSync?.showAuthModal?.();
+    return;
+  }
+  const dir = translatorState.dir === 'heard' ? 'heard' : 'to';
   translatorState.loading = true;
   translatorState.error = null;
+  translatorState.needAuth = false;
   renderTranslatorView();
   try {
+    const token = await window.cllSync?.getAccessToken?.();
+    if (!token) { translatorState.needAuth = true; throw new Error('Sign in required'); }
     const r = await fetch('/cunninglinguist/api/translate', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, lang: currentTarget(), sourceLang: currentSource() })
+      headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token },
+      body: JSON.stringify({ text, lang: currentTarget(), sourceLang: currentSource(), dir })
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
+      if (r.status === 401) translatorState.needAuth = true;
       throw new Error(err.error || `HTTP ${r.status}`);
     }
     const data = await r.json();
     data.input = text;
+    data.dir = dir;
     translatorState.lastResult = data;
-    // Add to recent (dedupe) — store as 'word' for new entries, keep backward compat
+    // Recent keeps the whole result so tapping it shows it again without a call
     translatorState.recent = [
-      { input: text, word: data.word },
-      ...translatorState.recent.filter(x => x.input !== text)
+      { input: text, word: data.word, dir, result: data },
+      ...translatorState.recent.filter(x => !(x.input === text && (x.dir || 'to') === dir))
     ].slice(0, 12);
     saveRecent();
   } catch (e) {
@@ -2827,15 +2859,20 @@ async function doTranslate() {
     renderTranslatorView();
     // Auto-play the result
     if (translatorState.lastResult && !translatorState.error) {
-      setTimeout(() => speakWord(translatorState.lastResult.word), 200);
+      setTimeout(() => { const lr = translatorState.lastResult; if (lr) speakWord(lr.word); }, 200);
     }
   }
 }
 function loadRecentTranslation(i) {
   const item = translatorState.recent[i];
   if (!item) return;
-  document.getElementById('translate-input').value = item.input;
-  doTranslate();
+  const dir = item.dir === 'heard' ? 'heard' : 'to';
+  translatorState.dir = dir;
+  translatorState.error = null;
+  translatorState.lastResult = item.result
+    ? { ...item.result, input: item.input, dir }
+    : { input: item.input, word: item.word || item.french, dir };
+  renderTranslatorView();
 }
 function toggleSaveCard() {
   const r = translatorState.lastResult;
@@ -2845,7 +2882,7 @@ function toggleSaveCard() {
     removeSavedCard(r.word);
     showToast(t('toast_removed'));
   } else {
-    saveTranslationCard(r);
+    saveTranslationCard(r.dir === 'heard' && r.meaning ? { ...r, input: r.meaning } : r);
     showToast(t('toast_saved'));
   }
   renderTranslatorView();
@@ -3447,7 +3484,12 @@ function renderTodaySummary() {
     <div class="today today-done">
       <div class="today-head"><h2>Done for today</h2><div class="today-paris">🔥 ${state.streak}</div></div>
       ${todayRecapHtml(s)}
-      <div class="today-actions one"><button class="today-btn primary" onclick="todayPaused=true;renderTodayView()">Back to Today</button></div>
+      ${typeof talkSupported === 'function' && talkSupported() ? `
+      <div class="today-actions">
+        <button class="today-btn primary" onclick="talkFromToday()">${escapeHtml(talkSceneOfDay().icon)} ${escapeHtml(talkSceneOfDay().title)}</button>
+        <button class="today-btn" onclick="todayPaused=true;renderTodayView()">Back to Today</button>
+      </div>` : `
+      <div class="today-actions one"><button class="today-btn primary" onclick="todayPaused=true;renderTodayView()">Back to Today</button></div>`}
     </div>`;
 }
 
@@ -3682,6 +3724,7 @@ let currentView = null;
 function setView(view) {
   if (view === 'today' && !todaySupported()) view = 'lesson';
   if (view === 'listen' && !listenSupported()) view = defaultView();
+  if (view === 'talk' && !(typeof talkSupported === 'function' && talkSupported())) view = defaultView();
   currentView = view;
   toggleMoreSheet(false);
   if (view !== 'quiz' && _quizKeyHandler) {
@@ -3702,6 +3745,7 @@ function setView(view) {
     else if (view === 'progress')      renderProgressView();
     else if (view === 'notebook')      renderNotebookView();
     else if (view === 'listen')        renderListenView();
+    else if (view === 'talk')          renderTalkView();
   }
 }
 

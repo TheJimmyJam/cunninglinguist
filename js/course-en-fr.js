@@ -990,8 +990,8 @@ const CONVERSATIONS_FR = [
       {who:"you", fr:"Bonjour, je voudrais un passe Navigo Easy et deux tickets, s'il vous plaît.", en:"Hello, I'd like a Navigo Easy card and two tickets, please."},
       {who:"them", fr:"Très bien. Ça fait sept euros dix.", en:"Very good. That's €7.10."},
       {who:"you", fr:"Quelle ligne pour aller au Louvre ?", en:"Which line to get to the Louvre?"},
-      {who:"them", fr:"Ligne 1, direction La Défense, descendez à Palais Royal.", en:"Line 1, direction La Défense, get off at Palais Royal."},
-      {who:"you", fr:"Merci. C'est combien d'arrêts ?", en:"Thanks. How many stops?"},
+      {who:"them", fr:"Ligne 1, direction La Défense, descendez à Palais-Royal.", en:"Line 1, direction La Défense, get off at Palais-Royal."},
+      {who:"you", fr:"Merci. Il y a combien d'arrêts ?", en:"Thanks. How many stops?"},
       {who:"them", fr:"Trois ou quatre arrêts.", en:"Three or four stops."},
       {who:"you", fr:"Parfait. Merci beaucoup, bonne journée.", en:"Perfect. Thanks, have a good day."}
     ]},
