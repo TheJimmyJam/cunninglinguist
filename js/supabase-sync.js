@@ -323,6 +323,45 @@
     closeAuthModal();
   };
 
+  // Code sign-in: existing accounts only (shouldCreateUser false; project sign-ups are off too).
+  window.cllAuthSendCode = async function () {
+    const emailEl = document.getElementById('auth-email-signin');
+    const email   = expandJimmy(emailEl.value.trim()).toLowerCase();
+    if (email !== emailEl.value.trim()) emailEl.value = email;
+    const errEl = document.getElementById('auth-error-signin');
+    const btn   = document.getElementById('auth-btn-sendcode');
+    errEl.style.color = '';
+    if (!email) { errEl.textContent = 'Enter your email first.'; return; }
+    if (!sb) { errEl.textContent = 'Sync is offline. Try again in a minute.'; return; }
+    btn.disabled = true; btn.textContent = 'Sending…';
+    const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false } });
+    btn.disabled = false; btn.textContent = 'Email me a new code';
+    if (error) {
+      errEl.textContent = /signup|not found|not allowed/i.test(error.message)
+        ? "That email doesn't have an account yet. Request an invite."
+        : error.message;
+      return;
+    }
+    document.getElementById('auth-code-row').style.display = '';
+    errEl.style.color = '#7ecb8a';
+    errEl.textContent = 'Check your email for a 6-digit code from CannonCodeConnect.';
+    document.getElementById('auth-code-signin').focus();
+  };
+
+  window.cllAuthVerifyCode = async function () {
+    const email = document.getElementById('auth-email-signin').value.trim().toLowerCase();
+    const token = document.getElementById('auth-code-signin').value.replace(/\D/g, '');
+    const errEl = document.getElementById('auth-error-signin');
+    const btn   = document.getElementById('auth-btn-verifycode');
+    errEl.style.color = '';
+    if (!email || token.length !== 6) { errEl.textContent = 'Enter your email and the 6-digit code.'; return; }
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    const { error } = await sb.auth.verifyOtp({ email, token, type: 'email' });
+    btn.disabled = false; btn.textContent = 'Sign in with code';
+    if (error) { errEl.textContent = 'That code didn’t work. Use the newest one, or email yourself a new code.'; return; }
+    closeAuthModal();
+  };
+
   // Accounts are invite-only: the second tab sends an invite request instead.
   window.cllAuthSubmitSignUp = async function () {
     const email  = document.getElementById('auth-email-signup').value.trim();

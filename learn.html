@@ -2240,6 +2240,15 @@
         <input type="password" id="auth-pw-signin" placeholder="••••••••" autocomplete="current-password">
       </div>
       <button class="auth-submit-btn" id="auth-btn-signin" onclick="window.cllAuthSubmitSignIn()">Sign in</button>
+      <div class="auth-divider">or</div>
+      <button class="auth-google-btn" id="auth-btn-sendcode" onclick="window.cllAuthSendCode()">Email me a code</button>
+      <div id="auth-code-row" style="display:none;margin-top:14px">
+        <div class="auth-field">
+          <label for="auth-code-signin">6-digit code</label>
+          <input type="text" id="auth-code-signin" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">
+        </div>
+        <button class="auth-submit-btn" id="auth-btn-verifycode" onclick="window.cllAuthVerifyCode()">Sign in with code</button>
+      </div>
       <div class="auth-error" id="auth-error-signin"></div>
     </div>
 
